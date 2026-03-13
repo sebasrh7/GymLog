@@ -52,7 +52,7 @@ export const EntrenamientoLibreScreen = () => {
   const [duracionTimer, setDuracionTimer] = useState(90);
 
   const { colors, isDark } = useColors();
-  const { ejercicios: biblioteca } = useEjercicios();
+  const { ejercicios: biblioteca, recargar: recargarBiblioteca } = useEjercicios();
 
   // Mantener pantalla encendida durante entrenamiento
   useEffect(() => {
@@ -243,40 +243,40 @@ export const EntrenamientoLibreScreen = () => {
         {resumen ? (
           <View style={styles.resumenContainer}>
             <View style={styles.resumenRow}>
-              <View style={styles.resumenItem}>
+              <View style={[styles.resumenItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <Ionicons name="time-outline" size={22} color={colors.accent} />
                 <Text style={[styles.resumenValor, { color: colors.text }]}>
                   {formatDuracion(resumen.duracionSeg)}
                 </Text>
-                <Text style={styles.resumenLabel}>Duración</Text>
+                <Text style={[styles.resumenLabel, { color: colors.textMuted }]}>Duración</Text>
               </View>
-              <View style={styles.resumenItem}>
+              <View style={[styles.resumenItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <Ionicons name="barbell-outline" size={22} color={colors.accent} />
                 <Text style={[styles.resumenValor, { color: colors.text }]}>
                   {resumen.volumenTotal.toLocaleString()} kg
                 </Text>
-                <Text style={styles.resumenLabel}>Volumen</Text>
+                <Text style={[styles.resumenLabel, { color: colors.textMuted }]}>Volumen</Text>
               </View>
             </View>
             <View style={styles.resumenRow}>
-              <View style={styles.resumenItem}>
+              <View style={[styles.resumenItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <Ionicons name="list-outline" size={22} color={colors.accent} />
                 <Text style={[styles.resumenValor, { color: colors.text }]}>
                   {resumen.totalSeries}
                 </Text>
-                <Text style={styles.resumenLabel}>Series</Text>
+                <Text style={[styles.resumenLabel, { color: colors.textMuted }]}>Series</Text>
               </View>
-              <View style={styles.resumenItem}>
+              <View style={[styles.resumenItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <Ionicons name="fitness-outline" size={22} color={colors.accent} />
                 <Text style={[styles.resumenValor, { color: colors.text }]}>
                   {resumen.ejercicios}
                 </Text>
-                <Text style={styles.resumenLabel}>Ejercicios</Text>
+                <Text style={[styles.resumenLabel, { color: colors.textMuted }]}>Ejercicios</Text>
               </View>
             </View>
           </View>
         ) : (
-          <Text style={styles.completadoSub}>
+          <Text style={[styles.completadoSub, { color: colors.textMuted }]}>
             {ejerciciosActivos.length} ejercicios · {totalSeriesCompletadas} series
           </Text>
         )}
@@ -298,8 +298,8 @@ export const EntrenamientoLibreScreen = () => {
 
       {/* Top bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={confirmarSalir} style={styles.btnClose} activeOpacity={0.85}>
-          <Ionicons name="close" size={20} color={COLORS.textMuted} />
+        <TouchableOpacity onPress={confirmarSalir} style={[styles.btnClose, { backgroundColor: colors.bgCard }]} activeOpacity={0.85}>
+          <Ionicons name="close" size={20} color={colors.textMuted} />
         </TouchableOpacity>
         <Text style={[styles.topTitle, { color: colors.text }]}>Entrenamiento libre</Text>
         <View style={{ width: 40 }} />
@@ -312,11 +312,11 @@ export const EntrenamientoLibreScreen = () => {
       >
         {/* Lista de ejercicios activos */}
         {ejerciciosActivos.map((ea, ejIndex) => (
-          <View key={ea.ejercicio.id} style={styles.ejercicioCard}>
+          <View key={ea.ejercicio.id} style={[styles.ejercicioCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             {/* Encabezado del ejercicio */}
             <View style={styles.ejercicioHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.grupoTag}>
+                <Text style={[styles.grupoTag, { color: colors.accent }]}>
                   {capitalize(ea.ejercicio.grupo_muscular)}
                 </Text>
                 <Text style={[styles.ejercicioNombre, { color: colors.text }]}>
@@ -327,9 +327,9 @@ export const EntrenamientoLibreScreen = () => {
 
             {/* Encabezado de columnas */}
             <View style={styles.serieHeaderRow}>
-              <Text style={[styles.serieHeaderText, { width: 40 }]}>Serie</Text>
-              <Text style={[styles.serieHeaderText, { flex: 1 }]}>Peso (kg)</Text>
-              <Text style={[styles.serieHeaderText, { flex: 1 }]}>Reps</Text>
+              <Text style={[styles.serieHeaderText, { width: 40, color: colors.textDim }]}>Serie</Text>
+              <Text style={[styles.serieHeaderText, { flex: 1, color: colors.textDim }]}>Peso (kg)</Text>
+              <Text style={[styles.serieHeaderText, { flex: 1, color: colors.textDim }]}>Reps</Text>
               <View style={{ width: 44 }} />
             </View>
 
@@ -348,32 +348,35 @@ export const EntrenamientoLibreScreen = () => {
                 <TextInput
                   style={[
                     styles.serieInput,
-                    serie.completada && styles.serieInputDone,
+                    { backgroundColor: colors.bgInput, color: colors.text },
+                    serie.completada && { backgroundColor: colors.border },
                   ]}
                   value={serie.peso}
                   onChangeText={v => handleUpdateSerie(ejIndex, serieIndex, 'peso', v)}
                   keyboardType="numeric"
                   placeholder="0"
-                  placeholderTextColor={COLORS.textDim}
+                  placeholderTextColor={colors.textDim}
                   editable={!serie.completada}
                   selectTextOnFocus
                 />
                 <TextInput
                   style={[
                     styles.serieInput,
-                    serie.completada && styles.serieInputDone,
+                    { backgroundColor: colors.bgInput, color: colors.text },
+                    serie.completada && { backgroundColor: colors.border },
                   ]}
                   value={serie.reps}
                   onChangeText={v => handleUpdateSerie(ejIndex, serieIndex, 'reps', v)}
                   keyboardType="numeric"
                   placeholder="0"
-                  placeholderTextColor={COLORS.textDim}
+                  placeholderTextColor={colors.textDim}
                   editable={!serie.completada}
                   selectTextOnFocus
                 />
                 <TouchableOpacity
                   style={[
                     styles.btnCheck,
+                    { backgroundColor: colors.bgInput },
                     serie.completada && styles.btnCheckDone,
                   ]}
                   onPress={() => handleCompletarSerie(ejIndex, serieIndex)}
@@ -395,8 +398,8 @@ export const EntrenamientoLibreScreen = () => {
               onPress={() => handleAgregarSerie(ejIndex)}
               activeOpacity={0.85}
             >
-              <Ionicons name="add" size={16} color={COLORS.accent} />
-              <Text style={styles.btnAgregarSerieText}>Serie</Text>
+              <Ionicons name="add" size={16} color={colors.accent} />
+              <Text style={[styles.btnAgregarSerieText, { color: colors.accent }]}>Serie</Text>
             </TouchableOpacity>
           </View>
         ))}
@@ -404,8 +407,8 @@ export const EntrenamientoLibreScreen = () => {
         {/* Mensaje vacío */}
         {ejerciciosActivos.length === 0 && (
           <View style={styles.emptyContainer}>
-            <Ionicons name="barbell-outline" size={48} color={COLORS.textDim} />
-            <Text style={styles.emptyText}>
+            <Ionicons name="barbell-outline" size={48} color={colors.textDim} />
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
               Agrega ejercicios para comenzar tu entrenamiento libre
             </Text>
           </View>
@@ -444,8 +447,8 @@ export const EntrenamientoLibreScreen = () => {
         onSelect={handleAgregarEjercicio}
         onClose={() => {
           setMostrarBiblioteca(false);
-  
         }}
+        onEjercicioCreado={recargarBiblioteca}
       />
 
       {/* Timer Modal */}
@@ -473,7 +476,6 @@ const styles = StyleSheet.create({
   btnClose: {
     width: 40,
     height: 40,
-    backgroundColor: COLORS.bgCard,
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
@@ -491,12 +493,10 @@ const styles = StyleSheet.create({
 
   // Ejercicio card
   ejercicioCard: {
-    backgroundColor: COLORS.bgCard,
     borderRadius: 40,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   ejercicioHeader: {
     flexDirection: 'row',
@@ -504,7 +504,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   grupoTag: {
-    color: COLORS.accent,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -525,7 +524,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   serieHeaderText: {
-    color: COLORS.textDim,
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
@@ -551,24 +549,19 @@ const styles = StyleSheet.create({
   },
   serieInput: {
     flex: 1,
-    backgroundColor: COLORS.bgInput,
     borderRadius: 40,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    color: COLORS.text,
     fontSize: 16,
     fontWeight: '700',
     fontFamily: 'Menlo',
     textAlign: 'center',
   },
-  serieInputDone: {
-    backgroundColor: COLORS.border,
-  },
+  serieInputDone: {},
   btnCheck: {
     width: 36,
     height: 36,
     borderRadius: 40,
-    backgroundColor: COLORS.bgInput,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -586,7 +579,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   btnAgregarSerieText: {
-    color: COLORS.accent,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -599,7 +591,6 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyText: {
-    color: COLORS.textMuted,
     fontSize: 15,
     textAlign: 'center',
     paddingHorizontal: 40,
@@ -660,7 +651,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   completadoSub: {
-    color: COLORS.textMuted,
     fontSize: 16,
     marginBottom: 40,
   },
@@ -688,13 +678,11 @@ const styles = StyleSheet.create({
   },
   resumenItem: {
     flex: 1,
-    backgroundColor: COLORS.bgCard,
     borderRadius: 40,
     padding: 16,
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   resumenValor: {
     fontSize: 18,
@@ -702,7 +690,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Menlo',
   },
   resumenLabel: {
-    color: COLORS.textMuted,
     fontSize: 12,
     fontWeight: '600',
   },

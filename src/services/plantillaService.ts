@@ -153,7 +153,7 @@ export const crearDesdeTemplate = async (plantilla: Plantilla): Promise<void> =>
       }
     }
   } catch (error) {
-    console.error('Error al crear rutinas desde plantilla:', error);
+    __DEV__ && console.error('Error al crear rutinas desde plantilla:', error);
     Alert.alert('Error', 'No se pudieron crear las rutinas desde la plantilla.');
     throw error;
   }

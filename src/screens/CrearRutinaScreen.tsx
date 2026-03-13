@@ -44,7 +44,7 @@ interface EjercicioConfig {
 export const CrearRutinaScreen = () => {
   const { colors } = useColors();
   const navigation = useNavigation<any>();
-  const { ejercicios } = useEjercicios();
+  const { ejercicios, recargar: recargarEjercicios } = useEjercicios();
 
   const [nombre, setNombre] = useState('');
   const [nombreFocused, setNombreFocused] = useState(false);
@@ -176,7 +176,7 @@ export const CrearRutinaScreen = () => {
                 activeOpacity={0.85}
                 style={[
                   styles.diaChip,
-                  { backgroundColor: sel ? COLORS.accent : '#2C2C2E' },
+                  { backgroundColor: sel ? COLORS.accent : colors.bgCard },
                 ]}
                 onPress={() => setDia(dia === d ? '' : d)}
               >
@@ -315,6 +315,7 @@ export const CrearRutinaScreen = () => {
         seleccionadoIds={ejerciciosConfig.map(c => c.ejercicio.id)}
         onSelect={agregarEjercicio}
         onClose={() => setMostrarBiblioteca(false)}
+        onEjercicioCreado={recargarEjercicios}
       />
     </View>
   );

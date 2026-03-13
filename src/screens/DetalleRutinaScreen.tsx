@@ -36,8 +36,8 @@ export const DetalleRutinaScreen = () => {
 
   if (loading) {
     return (
-      <View style={globalStyles.center}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
+      <View style={[globalStyles.center, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -53,38 +53,38 @@ export const DetalleRutinaScreen = () => {
         ListHeaderComponent={
           <View style={styles.header}>
             {rutina.dia_semana ? (
-              <Text style={styles.dia}>{capitalize(rutina.dia_semana)}</Text>
+              <Text style={[styles.dia, { color: colors.accent }]}>{capitalize(rutina.dia_semana)}</Text>
             ) : null}
-            <Text style={styles.titulo}>{rutina.nombre}</Text>
-            <Text style={styles.count}>
+            <Text style={[styles.titulo, { color: colors.text }]}>{rutina.nombre}</Text>
+            <Text style={[styles.count, { color: colors.textMuted }]}>
               {rutina.ejercicios?.length ?? 0} ejercicios
             </Text>
           </View>
         }
         renderItem={({ item, index }) => (
           <TouchableOpacity
-            style={styles.card}
+            style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             onPress={() => navigation.navigate('Estadisticas', {
               ejercicioId: item.ejercicio_id,
               ejercicioNombre: item.ejercicio_nombre,
             })}
             activeOpacity={0.85}
           >
-            <View style={styles.cardLeft}>
-              <Text style={styles.orden}>{index + 1}</Text>
+            <View style={[styles.cardLeft, { backgroundColor: colors.bg }]}>
+              <Text style={[styles.orden, { color: colors.accent }]}>{index + 1}</Text>
             </View>
             <View style={styles.cardBody}>
-              <Text style={styles.ejercicioNombre}>{item.ejercicio_nombre}</Text>
-              <Text style={styles.grupo}>{capitalize(item.grupo_muscular)}</Text>
+              <Text style={[styles.ejercicioNombre, { color: colors.text }]}>{item.ejercicio_nombre}</Text>
+              <Text style={[styles.grupo, { color: colors.textMuted }]}>{capitalize(item.grupo_muscular)}</Text>
             </View>
             <View style={styles.cardRight}>
-              <Text style={styles.stat}>{item.series} × {item.repeticiones}</Text>
-              <Text style={styles.statSub}>
+              <Text style={[styles.stat, { color: colors.text }]}>{item.series} × {item.repeticiones}</Text>
+              <Text style={[styles.statSub, { color: colors.textMuted }]}>
                 {item.peso_objetivo > 0 ? `${item.peso_objetivo} kg` : 'Sin peso'}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
-                <Ionicons name="time-outline" size={12} color={COLORS.textMuted} />
-                <Text style={[styles.statSub, { marginTop: 0 }]}>{item.descanso}s</Text>
+                <Ionicons name="time-outline" size={12} color={colors.textMuted} />
+                <Text style={[styles.statSub, { marginTop: 0, color: colors.textMuted }]}>{item.descanso}s</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -94,7 +94,7 @@ export const DetalleRutinaScreen = () => {
       <View style={styles.bottomButtons}>
         <TouchableOpacity
           activeOpacity={0.85}
-          style={styles.btnDuplicar}
+          style={[styles.btnDuplicar, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           onPress={() => {
             Alert.alert('Duplicar rutina', `¿Crear una copia de "${rutina.nombre}"?`, [
               { text: 'Cancelar', style: 'cancel' },
@@ -108,18 +108,18 @@ export const DetalleRutinaScreen = () => {
             ]);
           }}
         >
-          <Ionicons name="copy-outline" size={20} color={COLORS.text} />
+          <Ionicons name="copy-outline" size={20} color={colors.text} />
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.85}
-          style={styles.btnEditar}
+          style={[styles.btnEditar, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           onPress={() => navigation.navigate('EditarRutina', { rutinaId })}
         >
-          <Text style={styles.btnEditarText}>Editar</Text>
+          <Text style={[styles.btnEditarText, { color: colors.text }]}>Editar</Text>
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.85}
-          style={styles.btnIniciar}
+          style={[styles.btnIniciar, { backgroundColor: colors.accent }]}
           onPress={() => navigation.navigate('Entrenamiento', { rutinaId })}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -135,35 +135,32 @@ export const DetalleRutinaScreen = () => {
 const styles = StyleSheet.create({
   list: { padding: 24, paddingBottom: 130 },
   header: { marginBottom: 24 },
-  dia: { color: COLORS.accent, fontSize: 13, fontWeight: '800', fontStyle: 'italic', textTransform: 'uppercase', marginBottom: 4 },
-  titulo: { color: COLORS.text, fontSize: 26, fontWeight: '800', fontStyle: 'italic' },
-  count: { color: COLORS.textMuted, fontSize: 14, marginTop: 4, fontFamily: 'Menlo' },
+  dia: { fontSize: 13, fontWeight: '800', fontStyle: 'italic', textTransform: 'uppercase', marginBottom: 4 },
+  titulo: { fontSize: 26, fontWeight: '800', fontStyle: 'italic' },
+  count: { fontSize: 14, marginTop: 4, fontFamily: 'Menlo' },
   card: {
-    backgroundColor: COLORS.bgCard,
     borderRadius: 40,
     padding: 14,
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   cardLeft: {
     width: 36,
     height: 36,
     borderRadius: 40,
-    backgroundColor: COLORS.bg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  orden: { color: COLORS.accent, fontWeight: '800', fontSize: 15, fontFamily: 'Menlo' },
+  orden: { fontWeight: '800', fontSize: 15, fontFamily: 'Menlo' },
   cardBody: { flex: 1 },
-  ejercicioNombre: { color: COLORS.text, fontSize: 15, fontWeight: '600' },
-  grupo: { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
+  ejercicioNombre: { fontSize: 15, fontWeight: '600' },
+  grupo: { fontSize: 12, marginTop: 2 },
   cardRight: { alignItems: 'flex-end' },
-  stat: { color: COLORS.text, fontWeight: '700', fontSize: 15, fontFamily: 'Menlo' },
-  statSub: { color: COLORS.textMuted, fontSize: 12, marginTop: 2, fontFamily: 'Menlo' },
+  stat: { fontWeight: '700', fontSize: 15, fontFamily: 'Menlo' },
+  statSub: { fontSize: 12, marginTop: 2, fontFamily: 'Menlo' },
   bottomButtons: {
     position: 'absolute',
     bottom: 32,
@@ -173,28 +170,23 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   btnDuplicar: {
-    backgroundColor: COLORS.bgCard,
     borderRadius: 40,
     paddingVertical: 18,
     paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   btnEditar: {
     flex: 1,
-    backgroundColor: COLORS.bgCard,
     borderRadius: 40,
     paddingVertical: 18,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
-  btnEditarText: { color: COLORS.text, fontSize: 16, fontWeight: '800', fontStyle: 'italic' },
+  btnEditarText: { fontSize: 16, fontWeight: '800', fontStyle: 'italic' },
   btnIniciar: {
     flex: 2,
-    backgroundColor: COLORS.accent,
     borderRadius: 40,
     paddingVertical: 18,
     alignItems: 'center',

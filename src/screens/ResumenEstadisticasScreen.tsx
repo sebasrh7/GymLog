@@ -97,7 +97,7 @@ export const ResumenEstadisticasScreen = () => {
       }
       setGrupos(gruposArr);
     } catch (error) {
-      console.error('Error al cargar estadísticas:', error);
+      __DEV__ && console.error('Error al cargar estadísticas:', error);
     } finally {
       setLoading(false);
     }

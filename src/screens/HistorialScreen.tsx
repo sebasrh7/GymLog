@@ -155,7 +155,7 @@ export const HistorialScreen = () => {
               <View style={styles.cardContent}>
                 {/* Title row */}
                 <View style={styles.titleRow}>
-                  <Text style={styles.rutinaNombre} numberOfLines={1}>
+                  <Text style={[styles.rutinaNombre, { color: colors.text }]} numberOfLines={1}>
                     {s.rutina_nombre ?? 'Entrenamiento libre'}
                   </Text>
                   <Text style={[styles.hora, { color: colors.textDim }]}>
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
     marginBottom: 8,
     flexDirection: 'row',
     overflow: 'hidden',
@@ -258,7 +258,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   rutinaNombre: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
     flex: 1,

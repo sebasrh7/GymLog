@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Menlo',
   },
   btnIniciar: {
-    borderRadius: 14,
+    borderRadius: 40,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   btnEliminar: {
-    borderRadius: 10,
+    borderRadius: 16,
     width: 32,
     height: 32,
     justifyContent: 'center',

@@ -58,7 +58,7 @@ export const PlantillasScreen = () => {
           return (
             <View
               key={plantilla.nombre}
-              style={[styles.card, { backgroundColor: colors.bgCard }]}
+              style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             >
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -164,7 +164,6 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   cardHeader: {
     flexDirection: 'row',

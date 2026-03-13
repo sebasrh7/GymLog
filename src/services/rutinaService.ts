@@ -13,7 +13,7 @@ export const rutinaService = {
       }
       return items;
     } catch (error) {
-      console.error('Error al obtener rutinas:', error);
+      __DEV__ && console.error('Error al obtener rutinas:', error);
       Alert.alert('Error', 'No se pudieron cargar las rutinas.');
       return [];
     }
@@ -43,7 +43,7 @@ export const rutinaService = {
       rutina.ejercicios = ejercicios;
       return rutina;
     } catch (error) {
-      console.error('Error al obtener rutina:', error);
+      __DEV__ && console.error('Error al obtener rutina:', error);
       Alert.alert('Error', 'No se pudo cargar la rutina.');
       return null;
     }
@@ -58,7 +58,7 @@ export const rutinaService = {
       );
       return result.insertId;
     } catch (error) {
-      console.error('Error al crear rutina:', error);
+      __DEV__ && console.error('Error al crear rutina:', error);
       Alert.alert('Error', 'No se pudo crear la rutina.');
       throw error;
     }
@@ -72,7 +72,7 @@ export const rutinaService = {
         [nombre, dia_semana ?? null, id],
       );
     } catch (error) {
-      console.error('Error al actualizar rutina:', error);
+      __DEV__ && console.error('Error al actualizar rutina:', error);
       Alert.alert('Error', 'No se pudo actualizar la rutina.');
       throw error;
     }
@@ -110,7 +110,7 @@ export const rutinaService = {
         ],
       );
     } catch (error) {
-      console.error('Error al agregar ejercicio:', error);
+      __DEV__ && console.error('Error al agregar ejercicio:', error);
       Alert.alert('Error', 'No se pudo agregar el ejercicio.');
       throw error;
     }
@@ -121,7 +121,7 @@ export const rutinaService = {
       const db = await getDatabase();
       await db.executeSql('DELETE FROM rutina_ejercicios WHERE id = ?', [rutinaEjercicioId]);
     } catch (error) {
-      console.error('Error al eliminar ejercicio de rutina:', error);
+      __DEV__ && console.error('Error al eliminar ejercicio de rutina:', error);
       Alert.alert('Error', 'No se pudo eliminar el ejercicio.');
       throw error;
     }
@@ -151,7 +151,7 @@ export const rutinaService = {
       }
       return newId;
     } catch (error) {
-      console.error('Error al duplicar rutina:', error);
+      __DEV__ && console.error('Error al duplicar rutina:', error);
       Alert.alert('Error', 'No se pudo duplicar la rutina.');
       throw error;
     }
@@ -163,7 +163,7 @@ export const rutinaService = {
       await db.executeSql('DELETE FROM rutina_ejercicios WHERE rutina_id = ?', [id]);
       await db.executeSql('DELETE FROM rutinas WHERE id = ?', [id]);
     } catch (error) {
-      console.error('Error al eliminar rutina:', error);
+      __DEV__ && console.error('Error al eliminar rutina:', error);
       Alert.alert('Error', 'No se pudo eliminar la rutina.');
       throw error;
     }

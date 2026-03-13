@@ -15,7 +15,7 @@ export const ejercicioService = {
       }
       return items;
     } catch (error) {
-      console.error('Error al obtener ejercicios:', error);
+      __DEV__ && console.error('Error al obtener ejercicios:', error);
       Alert.alert('Error', 'No se pudieron cargar los ejercicios.');
       return [];
     }
@@ -34,7 +34,7 @@ export const ejercicioService = {
       }
       return items;
     } catch (error) {
-      console.error('Error al filtrar ejercicios:', error);
+      __DEV__ && console.error('Error al filtrar ejercicios:', error);
       Alert.alert('Error', 'No se pudieron cargar los ejercicios.');
       return [];
     }
@@ -52,7 +52,7 @@ export const ejercicioService = {
       }
       return grupos;
     } catch (error) {
-      console.error('Error al obtener grupos:', error);
+      __DEV__ && console.error('Error al obtener grupos:', error);
       return [];
     }
   },
@@ -66,7 +66,7 @@ export const ejercicioService = {
       );
       return result.insertId;
     } catch (error) {
-      console.error('Error al crear ejercicio:', error);
+      __DEV__ && console.error('Error al crear ejercicio:', error);
       Alert.alert('Error', 'No se pudo crear el ejercicio.');
       throw error;
     }
@@ -77,7 +77,7 @@ export const ejercicioService = {
       const db = await getDatabase();
       await db.executeSql('DELETE FROM ejercicios WHERE id = ? AND personalizado = 1', [id]);
     } catch (error) {
-      console.error('Error al eliminar ejercicio:', error);
+      __DEV__ && console.error('Error al eliminar ejercicio:', error);
       Alert.alert('Error', 'No se pudo eliminar el ejercicio.');
       throw error;
     }

@@ -18,7 +18,7 @@ export const sesionActivaService = {
     try {
       await RNFS.writeFile(RUTA, JSON.stringify(state), 'utf8');
     } catch (error) {
-      console.error('Error guardando sesión activa:', error);
+      __DEV__ && console.error('Error guardando sesión activa:', error);
     }
   },
 

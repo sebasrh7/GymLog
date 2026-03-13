@@ -13,7 +13,6 @@ import { COLORS, globalStyles } from '../utils/theme';
 import { useColors } from '../utils/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CHART_WIDTH = SCREEN_WIDTH - 80;
 const CHART_HEIGHT = 180;
 
 export const EstadisticasScreen = () => {
@@ -39,8 +38,8 @@ export const EstadisticasScreen = () => {
 
   if (loading) {
     return (
-      <View style={globalStyles.center}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
+      <View style={[globalStyles.center, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -57,21 +56,21 @@ export const EstadisticasScreen = () => {
   return (
     <View style={[globalStyles.container, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.nombre}>{ejercicioNombre}</Text>
+        <Text style={[styles.nombre, { color: colors.text }]}>{ejercicioNombre}</Text>
 
         {/* Récord personal */}
         {record && (
-          <View style={styles.prCard}>
-            <Text style={styles.prLabel}>RÉCORD PERSONAL</Text>
+          <View style={[styles.prCard, { backgroundColor: colors.bgCard, borderColor: colors.warning }]}>
+            <Text style={[styles.prLabel, { color: colors.warning }]}>RÉCORD PERSONAL</Text>
             <View style={styles.prRow}>
               <View style={styles.prItem}>
-                <Text style={styles.prValue}>{record.peso}</Text>
-                <Text style={styles.prUnit}>kg</Text>
+                <Text style={[styles.prValue, { color: colors.text }]}>{record.peso}</Text>
+                <Text style={[styles.prUnit, { color: colors.textMuted }]}>kg</Text>
               </View>
-              <Text style={styles.prSeparator}>×</Text>
+              <Text style={[styles.prSeparator, { color: colors.textMuted }]}>×</Text>
               <View style={styles.prItem}>
-                <Text style={styles.prValue}>{record.reps}</Text>
-                <Text style={styles.prUnit}>reps</Text>
+                <Text style={[styles.prValue, { color: colors.text }]}>{record.reps}</Text>
+                <Text style={[styles.prUnit, { color: colors.textMuted }]}>reps</Text>
               </View>
             </View>
           </View>
@@ -79,14 +78,14 @@ export const EstadisticasScreen = () => {
 
         {/* Gráfico de progreso */}
         {datos.length >= 2 ? (
-          <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>Peso máximo por sesión</Text>
+          <View style={[styles.chartCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <Text style={[styles.chartTitle, { color: colors.text }]}>Peso máximo por sesión</Text>
             <View style={styles.chartContainer}>
               {/* Eje Y */}
               <View style={styles.yAxis}>
-                <Text style={styles.axisLabel}>{maxPeso}</Text>
-                <Text style={styles.axisLabel}>{Math.round((maxPeso + minPeso) / 2)}</Text>
-                <Text style={styles.axisLabel}>{minPeso}</Text>
+                <Text style={[styles.axisLabel, { color: colors.textDim }]}>{maxPeso}</Text>
+                <Text style={[styles.axisLabel, { color: colors.textDim }]}>{Math.round((maxPeso + minPeso) / 2)}</Text>
+                <Text style={[styles.axisLabel, { color: colors.textDim }]}>{minPeso}</Text>
               </View>
               {/* Barras */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartScroll}>
@@ -95,9 +94,9 @@ export const EstadisticasScreen = () => {
                     const height = ((d.peso - minPeso) / range) * (CHART_HEIGHT - 30) + 20;
                     return (
                       <View key={i} style={styles.barWrapper}>
-                        <Text style={styles.barValue}>{d.peso}</Text>
-                        <View style={[styles.bar, { height }]} />
-                        <Text style={styles.barLabel}>{formatFechaCorta(d.fecha)}</Text>
+                        <Text style={[styles.barValue, { color: colors.textMuted }]}>{d.peso}</Text>
+                        <View style={[styles.bar, { height, backgroundColor: colors.accent }]} />
+                        <Text style={[styles.barLabel, { color: colors.textDim }]}>{formatFechaCorta(d.fecha)}</Text>
                       </View>
                     );
                   })}
@@ -106,8 +105,8 @@ export const EstadisticasScreen = () => {
             </View>
           </View>
         ) : (
-          <View style={styles.emptyChart}>
-            <Text style={styles.emptyText}>
+          <View style={[styles.emptyChart, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
               {datos.length === 0
                 ? 'Sin datos aún. Completa al menos una sesión.'
                 : 'Se necesitan al menos 2 sesiones para ver el gráfico.'}
@@ -117,13 +116,13 @@ export const EstadisticasScreen = () => {
 
         {/* Historial de sesiones */}
         {datos.length > 0 && (
-          <View style={styles.historialCard}>
-            <Text style={styles.chartTitle}>Historial</Text>
+          <View style={[styles.historialCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <Text style={[styles.chartTitle, { color: colors.text }]}>Historial</Text>
             {[...datos].reverse().map((d, i) => (
-              <View key={i} style={styles.historialRow}>
-                <Text style={styles.historialFecha}>{formatFechaCorta(d.fecha)}</Text>
-                <Text style={styles.historialPeso}>{d.peso} kg</Text>
-                <Text style={styles.historialReps}>{d.reps} reps</Text>
+              <View key={i} style={[styles.historialRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.historialFecha, { color: colors.textMuted }]}>{formatFechaCorta(d.fecha)}</Text>
+                <Text style={[styles.historialPeso, { color: colors.text }]}>{d.peso} kg</Text>
+                <Text style={[styles.historialReps, { color: colors.textMuted }]}>{d.reps} reps</Text>
               </View>
             ))}
           </View>
@@ -136,22 +135,18 @@ export const EstadisticasScreen = () => {
 const styles = StyleSheet.create({
   scroll: { padding: 24, paddingBottom: 40 },
   nombre: {
-    color: COLORS.text,
     fontSize: 24,
     fontWeight: '800',
     fontStyle: 'italic',
     marginBottom: 20,
   },
   prCard: {
-    backgroundColor: COLORS.bgCard,
     borderRadius: 40,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: COLORS.warning,
   },
   prLabel: {
-    color: COLORS.warning,
     fontSize: 12,
     fontWeight: '800',
     fontStyle: 'italic',
@@ -167,31 +162,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   prValue: {
-    color: COLORS.text,
     fontSize: 40,
     fontWeight: '800',
     fontFamily: 'Menlo',
   },
   prUnit: {
-    color: COLORS.textMuted,
     fontSize: 14,
     marginTop: -4,
   },
   prSeparator: {
-    color: COLORS.textMuted,
     fontSize: 28,
     marginHorizontal: 20,
   },
   chartCard: {
-    backgroundColor: COLORS.bgCard,
     borderRadius: 40,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   chartTitle: {
-    color: COLORS.text,
     fontSize: 16,
     fontWeight: '800',
     fontStyle: 'italic',
@@ -209,7 +198,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   axisLabel: {
-    color: COLORS.textDim,
     fontSize: 11,
     fontFamily: 'Menlo',
   },
@@ -228,58 +216,47 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: 20,
-    backgroundColor: COLORS.accent,
     borderRadius: 40,
     minHeight: 4,
   },
   barValue: {
-    color: COLORS.textMuted,
     fontSize: 10,
     marginBottom: 4,
     fontFamily: 'Menlo',
   },
   barLabel: {
-    color: COLORS.textDim,
     fontSize: 10,
     marginTop: 6,
     fontFamily: 'Menlo',
   },
   emptyChart: {
-    backgroundColor: COLORS.bgCard,
     borderRadius: 40,
     padding: 32,
     alignItems: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   emptyText: {
-    color: COLORS.textMuted,
     fontSize: 14,
     textAlign: 'center',
   },
   historialCard: {
-    backgroundColor: COLORS.bgCard,
     borderRadius: 40,
     padding: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   historialRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   historialFecha: {
-    color: COLORS.textMuted,
     fontSize: 14,
     flex: 1,
     fontFamily: 'Menlo',
   },
   historialPeso: {
-    color: COLORS.text,
     fontSize: 14,
     fontWeight: '700',
     flex: 1,
@@ -287,7 +264,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Menlo',
   },
   historialReps: {
-    color: COLORS.textMuted,
     fontSize: 14,
     flex: 1,
     textAlign: 'right',

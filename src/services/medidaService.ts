@@ -15,7 +15,7 @@ export const medidaService = {
       }
       return items;
     } catch (error) {
-      console.error('Error al obtener medidas:', error);
+      __DEV__ && console.error('Error al obtener medidas:', error);
       return [];
     }
   },
@@ -40,7 +40,7 @@ export const medidaService = {
       );
       return result.insertId;
     } catch (error) {
-      console.error('Error al crear medida:', error);
+      __DEV__ && console.error('Error al crear medida:', error);
       Alert.alert('Error', 'No se pudo guardar la medida.');
       throw error;
     }
@@ -51,7 +51,7 @@ export const medidaService = {
       const db = await getDatabase();
       await db.executeSql('DELETE FROM medidas_corporales WHERE id = ?', [id]);
     } catch (error) {
-      console.error('Error al eliminar medida:', error);
+      __DEV__ && console.error('Error al eliminar medida:', error);
       Alert.alert('Error', 'No se pudo eliminar la medida.');
       throw error;
     }

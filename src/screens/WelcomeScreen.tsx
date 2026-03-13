@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   btn: {
     marginHorizontal: 24,
     marginBottom: 32,
-    borderRadius: 18,
+    borderRadius: 40,
     paddingVertical: 18,
     flexDirection: 'row',
     alignItems: 'center',

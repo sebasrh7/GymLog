@@ -13,7 +13,7 @@ export const sesionService = {
       );
       return result.insertId;
     } catch (error) {
-      console.error('Error al crear sesión:', error);
+      __DEV__ && console.error('Error al crear sesión:', error);
       Alert.alert('Error', 'No se pudo iniciar la sesión de entrenamiento.');
       throw error;
     }
@@ -36,7 +36,7 @@ export const sesionService = {
         ],
       );
     } catch (error) {
-      console.error('Error al guardar serie:', error);
+      __DEV__ && console.error('Error al guardar serie:', error);
       Alert.alert('Error', 'No se pudo guardar la serie. Intenta de nuevo.');
       throw error;
     }
@@ -59,7 +59,7 @@ export const sesionService = {
       }
       return items;
     } catch (error) {
-      console.error('Error al obtener historial:', error);
+      __DEV__ && console.error('Error al obtener historial:', error);
       Alert.alert('Error', 'No se pudo cargar el historial.');
       return [];
     }
@@ -83,7 +83,7 @@ export const sesionService = {
       }
       return items;
     } catch (error) {
-      console.error('Error al obtener detalle de sesión:', error);
+      __DEV__ && console.error('Error al obtener detalle de sesión:', error);
       Alert.alert('Error', 'No se pudo cargar el detalle de la sesión.');
       return [];
     }
@@ -103,7 +103,7 @@ export const sesionService = {
       const row = result.rows.item(0);
       return { peso: row.peso, reps: row.reps };
     } catch (error) {
-      console.error('Error al obtener récord personal:', error);
+      __DEV__ && console.error('Error al obtener récord personal:', error);
       return null;
     }
   },
@@ -126,7 +126,7 @@ export const sesionService = {
       }
       return items;
     } catch (error) {
-      console.error('Error al obtener historial de ejercicio:', error);
+      __DEV__ && console.error('Error al obtener historial de ejercicio:', error);
       return [];
     }
   },
@@ -136,7 +136,7 @@ export const sesionService = {
       const db = await getDatabase();
       await db.executeSql('UPDATE sesiones SET duracion_seg = ? WHERE id = ?', [duracionSeg, sesionId]);
     } catch (error) {
-      console.error('Error al finalizar sesión:', error);
+      __DEV__ && console.error('Error al finalizar sesión:', error);
     }
   },
 
@@ -198,7 +198,7 @@ export const sesionService = {
       await db.executeSql('DELETE FROM series_realizadas WHERE sesion_id = ?', [id]);
       await db.executeSql('DELETE FROM sesiones WHERE id = ?', [id]);
     } catch (error) {
-      console.error('Error al eliminar sesión:', error);
+      __DEV__ && console.error('Error al eliminar sesión:', error);
       Alert.alert('Error', 'No se pudo eliminar la sesión.');
       throw error;
     }

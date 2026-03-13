@@ -35,7 +35,7 @@ export const backupService = {
       await RNFS.writeFile(path, json, 'utf8');
       return path;
     } catch (error) {
-      console.error('Error al exportar backup:', error);
+      __DEV__ && console.error('Error al exportar backup:', error);
       Alert.alert('Error', 'No se pudo crear el backup.');
       throw error;
     }
@@ -82,7 +82,7 @@ export const backupService = {
       await RNFS.writeFile(path, csv, 'utf8');
       return path;
     } catch (error) {
-      console.error('Error al exportar CSV:', error);
+      __DEV__ && console.error('Error al exportar CSV:', error);
       Alert.alert('Error', 'No se pudo exportar a CSV.');
       throw error;
     }
@@ -117,7 +117,7 @@ export const backupService = {
         }
       });
     } catch (error) {
-      console.error('Error al importar backup:', error);
+      __DEV__ && console.error('Error al importar backup:', error);
       Alert.alert('Error', 'No se pudo restaurar el backup. El archivo puede estar corrupto.');
       throw error;
     }

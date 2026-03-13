@@ -20,18 +20,18 @@ export const EjercicioCard: React.FC<Props> = ({ ejercicio, seleccionado, onPres
       style={[
         styles.card,
         { backgroundColor: colors.bgCard, borderColor: colors.border },
-        seleccionado && { borderColor: colors.accent, backgroundColor: '#1A0000' },
+        seleccionado && { borderColor: colors.accent, backgroundColor: 'rgba(255,0,0,0.05)' },
       ]}
       onPress={onPress}
       onLongPress={onLongPress}
       activeOpacity={0.85}
     >
       <View style={styles.info}>
-        <Text style={styles.nombre}>{ejercicio.nombre}</Text>
+        <Text style={[styles.nombre, { color: colors.text }]}>{ejercicio.nombre}</Text>
       </View>
       <View style={styles.rightSection}>
-        <View style={styles.grupoBadge}>
-          <Text style={styles.grupoBadgeText}>
+        <View style={[styles.grupoBadge, { backgroundColor: colors.bg }]}>
+          <Text style={[styles.grupoBadgeText, { color: colors.textMuted }]}>
             {capitalize(ejercicio.grupo_muscular)}
           </Text>
         </View>
@@ -59,7 +59,6 @@ const styles = StyleSheet.create({
   nombre: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   rightSection: {
     flexDirection: 'row',
@@ -67,13 +66,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   grupoBadge: {
-    backgroundColor: '#2C2C2E',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   grupoBadgeText: {
-    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '600',
   },
