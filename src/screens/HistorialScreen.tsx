@@ -9,6 +9,8 @@ import { Sesion } from '../models';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { COLORS, globalStyles } from '../utils/theme';
 import { useColors } from '../utils/ThemeContext';
+import { useUnidad } from '../utils/UnidadContext';
+import { fromDb } from '../utils/conversion';
 import { formatHora } from '../utils/formatters';
 
 const formatDuracion = (seg?: number): string => {
@@ -21,10 +23,10 @@ const formatDuracion = (seg?: number): string => {
   return `${m}m`;
 };
 
-const formatVolumen = (v?: number): string => {
+const formatVolumen = (v: number): string => {
   if (!v) return '0';
   if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
-  return String(v);
+  return String(Math.round(v));
 };
 
 const getFechaKey = (fecha: string): string => {
@@ -53,6 +55,7 @@ type ListItem =
 
 export const HistorialScreen = () => {
   const { colors } = useColors();
+  const { unidad } = useUnidad();
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -146,9 +149,9 @@ export const HistorialScreen = () => {
               {/* Red left accent strip */}
               <View style={styles.accentStrip}>
                 <Text style={styles.accentText}>
-                  {formatVolumen(s.volumen_total)}
+                  {formatVolumen(fromDb(s.volumen_total ?? 0, unidad))}
                 </Text>
-                <Text style={styles.accentUnit}>kg</Text>
+                <Text style={styles.accentUnit}>{unidad}</Text>
               </View>
 
               {/* Card content */}
@@ -176,9 +179,9 @@ export const HistorialScreen = () => {
                   <View style={styles.statItem}>
                     <Ionicons name="barbell-outline" size={14} color={colors.accent} />
                     <Text style={[styles.statText, { color: colors.textMuted }]}>
-                      {(s.volumen_total ?? 0).toLocaleString()}
+                      {Math.round(fromDb(s.volumen_total ?? 0, unidad)).toLocaleString()}
                     </Text>
-                    <Text style={[styles.statLabel, { color: colors.textDim }]}>kg</Text>
+                    <Text style={[styles.statLabel, { color: colors.textDim }]}>{unidad}</Text>
                   </View>
                   <View style={[styles.statDot, { backgroundColor: colors.border }]} />
                   <View style={styles.statItem}>

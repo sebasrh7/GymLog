@@ -1,6 +1,8 @@
 import { Alert } from 'react-native';
 import { getDatabase } from '../database/database';
 import RNFS from 'react-native-fs';
+import { preferences } from '../utils/preferences';
+import { fromDb } from '../utils/conversion';
 
 const TABLAS = [
   'ejercicios',
@@ -59,7 +61,8 @@ export const backupService = {
         rows.push(result.rows.item(i));
       }
 
-      const header = 'Fecha,Rutina,Ejercicio,Grupo Muscular,Serie,Peso (kg),Reps,Completado,Duración (min)';
+      const unidad = await preferences.getUnidad();
+      const header = `Fecha,Rutina,Ejercicio,Grupo Muscular,Serie,Peso (${unidad}),Reps,Completado,Duración (min)`;
       const csvRows = rows.map(row => {
         const duracionMin = row.duracion_seg != null
           ? (row.duracion_seg / 60).toFixed(1)
@@ -70,7 +73,7 @@ export const backupService = {
           row.ejercicio ?? '',
           row.grupo_muscular ?? '',
           row.serie_numero ?? '',
-          row.peso ?? '',
+          row.peso != null ? parseFloat(fromDb(row.peso, unidad).toFixed(1)) : '',
           row.reps ?? '',
           row.completado ?? '',
           duracionMin,

@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from 'react-native';
 import RNFS from 'react-native-fs';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { ThemeProvider } from './src/utils/ThemeContext';
+import { UnidadProvider } from './src/utils/UnidadContext';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/Toast';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
@@ -56,9 +57,11 @@ const App = () => {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <ToastProvider>
-          <AppContent />
-        </ToastProvider>
+        <UnidadProvider>
+          <ToastProvider>
+            <AppContent />
+          </ToastProvider>
+        </UnidadProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

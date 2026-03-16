@@ -9,12 +9,15 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useColors } from '../utils/ThemeContext';
+import { useUnidad } from '../utils/UnidadContext';
+import { weightIncrement } from '../utils/conversion';
 import { COLORS, globalStyles } from '../utils/theme';
 
 const PERCENTAGES = [100, 95, 90, 85, 80, 75, 70, 65, 60];
 
 export const CalculadoraScreen = () => {
   const { colors } = useColors();
+  const { unidad } = useUnidad();
   const [peso, setPeso] = useState('');
   const [reps, setReps] = useState('');
   const [resultado, setResultado] = useState<number | null>(null);
@@ -53,11 +56,11 @@ export const CalculadoraScreen = () => {
         <View style={styles.inputsRow}>
           <View style={styles.inputBlock}>
             <Text style={[styles.inputLabel, { color: colors.textMuted }]}>
-              PESO (KG)
+              PESO ({unidad.toUpperCase()})
             </Text>
             <View style={[styles.inputBox, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
               <TouchableOpacity
-                onPress={() => setPeso(p => String(Math.max(0, (parseFloat(p) || 0) - 2.5)))}
+                onPress={() => setPeso(p => String(Math.max(0, (parseFloat(p) || 0) - weightIncrement(unidad))))}
                 style={styles.inputBtn}
                 activeOpacity={0.85}
               >
@@ -73,7 +76,7 @@ export const CalculadoraScreen = () => {
                 selectTextOnFocus
               />
               <TouchableOpacity
-                onPress={() => setPeso(p => String((parseFloat(p) || 0) + 2.5))}
+                onPress={() => setPeso(p => String((parseFloat(p) || 0) + weightIncrement(unidad)))}
                 style={styles.inputBtn}
                 activeOpacity={0.85}
               >
@@ -135,7 +138,7 @@ export const CalculadoraScreen = () => {
                 {resultado.toFixed(1)}
               </Text>
               <Text style={[styles.resultUnit, { color: colors.textMuted }]}>
-                KG
+                {unidad.toUpperCase()}
               </Text>
             </View>
 
@@ -169,7 +172,7 @@ export const CalculadoraScreen = () => {
                       {pct}%
                     </Text>
                     <Text style={[styles.tableCellWeight, { color: is100 ? COLORS.accent : colors.text }]}>
-                      {pesoEst.toFixed(1)} kg
+                      {pesoEst.toFixed(1)} {unidad}
                     </Text>
                     <Text style={[styles.tableCellReps, { color: is100 ? COLORS.accent : colors.textMuted }]}>
                       {pct === 100 ? '1' : `~${repsFromPercent(pct)}`}

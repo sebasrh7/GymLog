@@ -4,11 +4,12 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  TextInput,
   StatusBar,
   SafeAreaView,
   Alert,
   Vibration,
+  ScrollView,
+  Share,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -16,99 +17,172 @@ import KeepAwake from 'react-native-keep-awake';
 import { rutinaService } from '../services/rutinaService';
 import { sesionService } from '../services/sesionService';
 import { sesionActivaService } from '../services/sesionActivaService';
-import { useSesion, useTimer } from '../hooks';
+import { useEjercicios } from '../hooks';
 import { TimerModal } from '../components/TimerModal';
-import { Rutina, RutinaEjercicio, TipoSerie, TIPO_SERIE_LABELS } from '../models';
+import { EjercicioPickerModal } from '../components/EjercicioPickerModal';
+import { EjercicioWorkoutCard } from '../components/EjercicioWorkoutCard';
+import { Ejercicio, EjercicioActivo, SerieLocal } from '../models';
 import { COLORS } from '../utils/theme';
 import { useColors } from '../utils/ThemeContext';
-import { capitalize } from '../utils/formatters';
+import { preferences } from '../utils/preferences';
+import { useUnidad } from '../utils/UnidadContext';
+import { fromDb, toDb, displayWeight, roundToPlate } from '../utils/conversion';
 
 export const EntrenamientoScreen = () => {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
-  const { rutinaId } = route.params;
+  const rutinaId: number | undefined = route.params?.rutinaId;
 
-  const [rutina, setRutina] = useState<Rutina | null>(null);
-  const [ejercicioIndex, setEjercicioIndex] = useState(0);
-  const [serieActual, setSerieActual] = useState(1);
-  const [peso, setPeso] = useState('');
-  const [reps, setReps] = useState('');
+  const [sesionId, setSesionId] = useState<number | null>(null);
+  const [rutinaNombre, setRutinaNombre] = useState('');
+  const [ejerciciosActivos, setEjerciciosActivos] = useState<EjercicioActivo[]>([]);
+  const [mostrarBiblioteca, setMostrarBiblioteca] = useState(false);
   const [mostrarTimer, setMostrarTimer] = useState(false);
   const [duracionTimer, setDuracionTimer] = useState(90);
   const [completado, setCompletado] = useState(false);
-  const [seriesCompletadas, setSeriesCompletadas] = useState<Set<string>>(new Set());
-  const [recordPersonal, setRecordPersonal] = useState<{ peso: number; reps: number } | null>(null);
+  const [resumen, setResumen] = useState<{
+    totalSeries: number;
+    volumenTotal: number;
+    ejercicios: number;
+    duracionSeg: number;
+  } | null>(null);
   const [inicioTimestamp] = useState(Date.now());
-  const [resumen, setResumen] = useState<{ totalSeries: number; volumenTotal: number; ejercicios: number; duracionSeg: number } | null>(null);
-  const [notaSerie, setNotaSerie] = useState('');
+  const [descansoDefault, setDescansoDefault] = useState(90);
+  const [loading, setLoading] = useState(true);
 
   const { colors, isDark } = useColors();
-  const { sesionId, iniciarSesion, completarSerie } = useSesion();
-  const { detener: detenerTimer } = useTimer(90);
+  const { unidad } = useUnidad();
+  const { ejercicios: biblioteca, recargar: recargarBiblioteca } = useEjercicios();
 
-  // Mantener pantalla encendida durante entrenamiento
+  // Keep screen awake
   useEffect(() => {
     KeepAwake.activate();
-    return () => {
-      KeepAwake.deactivate();
-    };
+    preferences.getDescanso().then(setDescansoDefault).catch(() => {});
+    return () => { KeepAwake.deactivate(); };
   }, []);
 
-  // Limpiar timer al salir de la pantalla
-  useEffect(() => {
-    return () => {
-      detenerTimer();
-      setMostrarTimer(false);
-    };
-  }, [detenerTimer]);
+  // Ensure session exists
+  const ensureSesion = useCallback(async (): Promise<number> => {
+    if (sesionId) return sesionId;
+    const id = await sesionService.crear(rutinaId);
+    setSesionId(id);
+    return id;
+  }, [sesionId, rutinaId]);
 
+  // Persist state for recovery
+  const persistState = useCallback((activos: EjercicioActivo[], sid: number | null) => {
+    if (!sid) return;
+    sesionActivaService.guardar({
+      sesionId: sid,
+      rutinaId: rutinaId ?? null,
+      ejerciciosActivos: activos.map(ea => ({
+        ejercicioId: ea.ejercicio.id,
+        ejercicioNombre: ea.ejercicio.nombre,
+        grupoMuscular: ea.ejercicio.grupo_muscular,
+        series: ea.series.map(s => ({
+          peso: s.peso,
+          reps: s.reps,
+          completada: s.completada,
+          nota: s.nota,
+        })),
+        descanso: ea.descanso,
+        tipoSerie: ea.tipoSerie,
+        grupoSerie: ea.grupoSerie,
+        collapsed: ea.collapsed,
+      })),
+      timestamp: Date.now(),
+    });
+  }, [rutinaId]);
+
+  // Initialize
   useEffect(() => {
     const init = async () => {
-      const r = await rutinaService.getById(rutinaId);
-      setRutina(r);
+      // Try session recovery first
+      const recovered = await sesionActivaService.cargar();
+      if (recovered) {
+        const matchesRoute = rutinaId
+          ? recovered.rutinaId === rutinaId
+          : recovered.rutinaId === null;
 
-      // Intentar recuperar sesión interrumpida
-      const guardada = await sesionActivaService.cargar();
-      if (guardada && guardada.rutinaId === rutinaId) {
-        setEjercicioIndex(guardada.ejercicioIndex);
-        setSerieActual(guardada.serieActual);
-        setPeso(guardada.peso);
-        setReps(guardada.reps);
-        setSeriesCompletadas(new Set(guardada.seriesCompletadas));
-        // Restaurar sesionId directamente
-        await iniciarSesion(rutinaId);
-        const ejId = r?.ejercicios?.[guardada.ejercicioIndex]?.ejercicio_id;
-        if (ejId) {
-          const pr = await sesionService.getRecordPersonal(ejId);
-          setRecordPersonal(pr);
+        if (matchesRoute) {
+          setSesionId(recovered.sesionId);
+          const activos: EjercicioActivo[] = await Promise.all(
+            recovered.ejerciciosActivos.map(async (ea) => {
+              const pr = await sesionService.getRecordPersonal(ea.ejercicioId);
+              return {
+                ejercicio: { id: ea.ejercicioId, nombre: ea.ejercicioNombre, grupo_muscular: ea.grupoMuscular },
+                series: ea.series.map(s => ({ ...s })),
+                descanso: ea.descanso,
+                tipoSerie: ea.tipoSerie,
+                grupoSerie: ea.grupoSerie,
+                collapsed: ea.collapsed,
+                recordPersonal: pr,
+              };
+            })
+          );
+          setEjerciciosActivos(activos);
+          if (rutinaId) {
+            const r = await rutinaService.getById(rutinaId);
+            if (r) setRutinaNombre(r.nombre);
+          }
+          setLoading(false);
+          return;
         }
-        return;
       }
 
-      if (r?.ejercicios?.[0]) {
-        setPeso(String(r.ejercicios[0].peso_objetivo));
-        setReps(String(r.ejercicios[0].repeticiones));
-        const pr = await sesionService.getRecordPersonal(r.ejercicios[0].ejercicio_id);
-        setRecordPersonal(pr);
+      // Fresh start
+      if (rutinaId) {
+        const r = await rutinaService.getById(rutinaId);
+        if (!r || !r.ejercicios) {
+          navigation.goBack();
+          return;
+        }
+        setRutinaNombre(r.nombre);
+
+        const activos: EjercicioActivo[] = await Promise.all(
+          r.ejercicios.map(async (re) => {
+            const pr = await sesionService.getRecordPersonal(re.ejercicio_id);
+            const ultimas = await sesionService.getUltimasSeries(re.ejercicio_id);
+            const series: SerieLocal[] = Array.from({ length: re.series }, (_, i) => ({
+              peso: re.peso_objetivo > 0 ? displayWeight(re.peso_objetivo, unidad) : '0',
+              reps: String(re.repeticiones),
+              completada: false,
+              pesoAnterior: ultimas[i]?.peso != null ? fromDb(ultimas[i].peso, unidad) : undefined,
+              repsAnterior: ultimas[i]?.reps,
+            }));
+            return {
+              ejercicio: { id: re.ejercicio_id, nombre: re.ejercicio_nombre, grupo_muscular: re.grupo_muscular },
+              series,
+              descanso: re.descanso,
+              tipoSerie: re.tipo_serie ?? 'normal',
+              grupoSerie: re.grupo_serie,
+              collapsed: false,
+              recordPersonal: pr,
+            };
+          })
+        );
+
+        const id = await sesionService.crear(rutinaId);
+        setSesionId(id);
+        setEjerciciosActivos(activos);
+        persistState(activos, id);
       }
-      await iniciarSesion(rutinaId);
+      // Free workout: start empty, session created lazily
+      setLoading(false);
     };
     init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const ejercicioActual: RutinaEjercicio | undefined =
-    rutina?.ejercicios?.[ejercicioIndex];
+  // Complete series
+  const handleCompletarSerie = useCallback(async (ejIndex: number, serieIndex: number) => {
+    const ea = ejerciciosActivos[ejIndex];
+    if (!ea) return;
+    const serie = ea.series[serieIndex];
+    if (!serie || serie.completada) return;
 
-  const totalEjercicios = rutina?.ejercicios?.length ?? 0;
-  const claveCompletada = `${ejercicioIndex}-${serieActual}`;
-  const yaCompletada = seriesCompletadas.has(claveCompletada);
-
-  const handleCompletar = useCallback(async () => {
-    if (!ejercicioActual || yaCompletada) return;
-
-    // Validar inputs numéricos
-    const pesoNum = parseFloat(peso);
-    const repsNum = parseInt(reps, 10);
+    const pesoNum = parseFloat(serie.peso);
+    const repsNum = parseInt(serie.reps, 10);
 
     if (isNaN(pesoNum) || pesoNum < 0) {
       Alert.alert('Peso inválido', 'Ingresa un peso válido (0 o mayor).');
@@ -119,134 +193,263 @@ export const EntrenamientoScreen = () => {
       return;
     }
 
-    // Guardar serie
+    const id = await ensureSesion();
+
     try {
-      await completarSerie(
-        ejercicioActual.ejercicio_id,
-        serieActual,
-        pesoNum,
-        repsNum,
-      );
+      await sesionService.guardarSerie({
+        sesion_id: id,
+        ejercicio_id: ea.ejercicio.id,
+        serie_numero: serieIndex + 1,
+        peso: toDb(pesoNum, unidad),
+        reps: repsNum,
+        completado: true,
+      });
     } catch {
-      return; // El error ya se muestra en el servicio
+      return;
     }
 
-    // Feedback háptico al completar serie
     Vibration.vibrate(100);
 
-    const nuevasCompletadas = new Set(seriesCompletadas);
-    nuevasCompletadas.add(claveCompletada);
-    setSeriesCompletadas(nuevasCompletadas);
+    const updatedActivos = [...ejerciciosActivos];
+    const updatedSeries = [...updatedActivos[ejIndex].series];
+    updatedSeries[serieIndex] = { ...updatedSeries[serieIndex], completada: true };
+    updatedActivos[ejIndex] = { ...updatedActivos[ejIndex], series: updatedSeries };
 
-    const tipoSerie: TipoSerie = ejercicioActual.tipo_serie ?? 'normal';
-    const descanso = ejercicioActual.descanso;
-
-    // ¿Quedan más series?
-    let nextEjIdx = ejercicioIndex;
-    let nextSerie = serieActual;
-    let nextPeso = peso;
-    let nextReps = reps;
+    // Tipo serie logic
     let showTimer = true;
-    let timerDuration = descanso;
+    let timerDur = ea.descanso;
 
-    if (serieActual < ejercicioActual.series) {
-      nextSerie = serieActual + 1;
-      setSerieActual(nextSerie);
-
-      // Dropset: reducir peso 20%, sin descanso entre series
-      if (tipoSerie === 'dropset') {
-        const reducido = Math.round((parseFloat(peso) * 0.8) / 2.5) * 2.5;
-        nextPeso = String(Math.max(0, reducido));
-        setPeso(nextPeso);
-        showTimer = false;
-      } else if (tipoSerie === 'rest_pause') {
-        timerDuration = descanso > 0 ? descanso : 15;
+    if (ea.tipoSerie === 'dropset') {
+      showTimer = false;
+      // Auto-reduce weight for next uncompleted series
+      const nextIdx = updatedSeries.findIndex((s, i) => i > serieIndex && !s.completada);
+      if (nextIdx !== -1) {
+        const reducido = roundToPlate(pesoNum * 0.8, unidad);
+        const newSeries = [...updatedActivos[ejIndex].series];
+        newSeries[nextIdx] = { ...newSeries[nextIdx], peso: String(Math.max(0, reducido)) };
+        updatedActivos[ejIndex] = { ...updatedActivos[ejIndex], series: newSeries };
       }
-
-      if (showTimer && timerDuration > 0) {
-        setDuracionTimer(timerDuration);
-        setMostrarTimer(true);
-      }
-    } else {
-      // Siguiente ejercicio
-      const next = ejercicioIndex + 1;
-      if (next < totalEjercicios) {
-        const nextEj = rutina!.ejercicios![next];
-
-        // Superserie: si el siguiente ejercicio tiene el mismo grupo_serie, sin descanso
-        const mismoGrupoSuper =
-          tipoSerie === 'superserie' &&
-          nextEj.tipo_serie === 'superserie' &&
-          ejercicioActual.grupo_serie != null &&
-          nextEj.grupo_serie === ejercicioActual.grupo_serie;
-
-        nextEjIdx = next;
-        nextSerie = 1;
-        nextPeso = String(nextEj.peso_objetivo);
-        nextReps = String(nextEj.repeticiones);
-        setEjercicioIndex(next);
-        setSerieActual(1);
-        setPeso(nextPeso);
-        setReps(nextReps);
-        sesionService.getRecordPersonal(nextEj.ejercicio_id).then(setRecordPersonal).catch(() => {});
-
-        if (mismoGrupoSuper) {
-          // No rest between superset exercises
+    } else if (ea.tipoSerie === 'rest_pause') {
+      timerDur = ea.descanso > 0 ? ea.descanso : 15;
+    } else if (ea.tipoSerie === 'superserie' && ea.grupoSerie != null) {
+      const pairedIdx = updatedActivos.findIndex(
+        (other, i) => i !== ejIndex
+          && other.tipoSerie === 'superserie'
+          && other.grupoSerie === ea.grupoSerie
+      );
+      if (pairedIdx !== -1) {
+        const myCompleted = updatedActivos[ejIndex].series.filter(s => s.completada).length;
+        const pairedCompleted = updatedActivos[pairedIdx].series.filter(s => s.completada).length;
+        if (myCompleted > pairedCompleted) {
           showTimer = false;
-        } else {
-          timerDuration = descanso;
         }
+      }
+    }
 
-        if (showTimer && timerDuration > 0) {
-          setDuracionTimer(timerDuration);
-          setMostrarTimer(true);
-        }
-      } else {
-        // Fin del entrenamiento
-        setCompletado(true);
-        await sesionActivaService.limpiar();
+    // Auto-collapse if all series completed, expand next uncompleted
+    const allDone = updatedActivos[ejIndex].series.every(s => s.completada);
+    if (allDone) {
+      updatedActivos[ejIndex] = { ...updatedActivos[ejIndex], collapsed: true };
+      const nextUncompleted = updatedActivos.findIndex(
+        (e, i) => i > ejIndex && e.series.some(s => !s.completada),
+      );
+      if (nextUncompleted !== -1 && updatedActivos[nextUncompleted].collapsed) {
+        updatedActivos[nextUncompleted] = { ...updatedActivos[nextUncompleted], collapsed: false };
+      }
+    }
+
+    setEjerciciosActivos(updatedActivos);
+    persistState(updatedActivos, id);
+
+    if (showTimer && timerDur > 0) {
+      setDuracionTimer(timerDur);
+      setMostrarTimer(true);
+    }
+  }, [ejerciciosActivos, ensureSesion, persistState, unidad]);
+
+  // Undo completed serie
+  const handleDescompletarSerie = useCallback(async (ejIndex: number, serieIndex: number) => {
+    const ea = ejerciciosActivos[ejIndex];
+    if (!ea) return;
+    const serie = ea.series[serieIndex];
+    if (!serie || !serie.completada) return;
+
+    if (sesionId) {
+      try {
+        await sesionService.eliminarSerie(sesionId, ea.ejercicio.id, serieIndex + 1);
+      } catch {
         return;
       }
     }
 
-    // Persistir progreso para recuperación
-    sesionActivaService.guardar({
-      sesionId: sesionId ?? 0,
-      rutinaId,
-      ejercicioIndex: nextEjIdx,
-      serieActual: nextSerie,
-      seriesCompletadas: Array.from(nuevasCompletadas),
-      peso: nextPeso,
-      reps: nextReps,
-      timestamp: Date.now(),
-    });
-  }, [
-    ejercicioActual, serieActual, peso, reps,
-    ejercicioIndex, rutina, totalEjercicios,
-    seriesCompletadas, claveCompletada, yaCompletada,
-    sesionId, completarSerie, rutinaId,
-  ]);
+    const updatedActivos = [...ejerciciosActivos];
+    const updatedSeries = [...updatedActivos[ejIndex].series];
+    updatedSeries[serieIndex] = { ...updatedSeries[serieIndex], completada: false };
+    updatedActivos[ejIndex] = { ...updatedActivos[ejIndex], series: updatedSeries, collapsed: false };
 
+    setEjerciciosActivos(updatedActivos);
+    persistState(updatedActivos, sesionId);
+  }, [ejerciciosActivos, sesionId, persistState]);
+
+  // Update serie field
+  const handleUpdateSerie = useCallback((ejIndex: number, serieIndex: number, field: 'peso' | 'reps', value: string) => {
+    setEjerciciosActivos(prev => {
+      const updated = [...prev];
+      const series = [...updated[ejIndex].series];
+      series[serieIndex] = { ...series[serieIndex], [field]: value };
+      updated[ejIndex] = { ...updated[ejIndex], series };
+      return updated;
+    });
+  }, []);
+
+  // Add serie
+  const handleAgregarSerie = useCallback((ejIndex: number) => {
+    setEjerciciosActivos(prev => {
+      const updated = [...prev];
+      const lastSerie = updated[ejIndex].series[updated[ejIndex].series.length - 1];
+      updated[ejIndex] = {
+        ...updated[ejIndex],
+        series: [
+          ...updated[ejIndex].series,
+          { peso: lastSerie?.peso ?? '', reps: lastSerie?.reps ?? '', completada: false },
+        ],
+      };
+      return updated;
+    });
+  }, []);
+
+  // Remove serie
+  const handleRemoveSerie = useCallback((ejIndex: number, serieIndex: number) => {
+    setEjerciciosActivos(prev => {
+      const updated = [...prev];
+      const series = updated[ejIndex].series.filter((_, i) => i !== serieIndex);
+      if (series.length === 0) return prev;
+      updated[ejIndex] = { ...updated[ejIndex], series };
+      return updated;
+    });
+  }, []);
+
+  // Change descanso
+  const handleDescansoChange = useCallback((ejIndex: number, seconds: number) => {
+    setEjerciciosActivos(prev => {
+      const updated = [...prev];
+      updated[ejIndex] = { ...updated[ejIndex], descanso: seconds };
+      return updated;
+    });
+  }, []);
+
+  // Reorder
+  const handleReorder = useCallback((ejIndex: number, direction: 'up' | 'down') => {
+    setEjerciciosActivos(prev => {
+      const targetIdx = direction === 'up' ? ejIndex - 1 : ejIndex + 1;
+      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
+      const updated = [...prev];
+      [updated[ejIndex], updated[targetIdx]] = [updated[targetIdx], updated[ejIndex]];
+      return updated;
+    });
+  }, []);
+
+  // Toggle collapse
+  const handleToggleCollapse = useCallback((ejIndex: number) => {
+    setEjerciciosActivos(prev => {
+      const updated = [...prev];
+      updated[ejIndex] = { ...updated[ejIndex], collapsed: !updated[ejIndex].collapsed };
+      return updated;
+    });
+  }, []);
+
+  // Remove exercise
+  const handleRemoveEjercicio = useCallback((ejIndex: number) => {
+    const ea = ejerciciosActivos[ejIndex];
+    const hasDone = ea?.series.some(s => s.completada);
+    const doRemove = () => {
+      setEjerciciosActivos(prev => prev.filter((_, i) => i !== ejIndex));
+    };
+    if (hasDone) {
+      Alert.alert(
+        'Eliminar ejercicio',
+        'Este ejercicio tiene series completadas. ¿Seguro que quieres eliminarlo?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Eliminar', style: 'destructive', onPress: doRemove },
+        ],
+      );
+    } else {
+      doRemove();
+    }
+  }, [ejerciciosActivos]);
+
+  // Add exercise
+  const handleAgregarEjercicio = useCallback(async (ejercicio: Ejercicio) => {
+    if (ejerciciosActivos.some(ea => ea.ejercicio.id === ejercicio.id)) {
+      setMostrarBiblioteca(false);
+      return;
+    }
+    const pr = await sesionService.getRecordPersonal(ejercicio.id);
+    const ultimas = await sesionService.getUltimasSeries(ejercicio.id);
+    setEjerciciosActivos(prev => [
+      ...prev,
+      {
+        ejercicio,
+        series: [{
+          peso: ultimas[0] ? displayWeight(ultimas[0].peso, unidad) : '',
+          reps: ultimas[0] ? String(ultimas[0].reps) : '',
+          completada: false,
+          pesoAnterior: ultimas[0]?.peso != null ? fromDb(ultimas[0].peso, unidad) : undefined,
+          repsAnterior: ultimas[0]?.reps,
+        }],
+        descanso: descansoDefault,
+        tipoSerie: 'normal',
+        grupoSerie: null,
+        collapsed: false,
+        recordPersonal: pr,
+      },
+    ]);
+    setMostrarBiblioteca(false);
+  }, [ejerciciosActivos, descansoDefault]);
+
+  // Confirm exit
   const confirmarSalir = () => {
+    const hasSeries = ejerciciosActivos.some(ea => ea.series.some(s => s.completada));
+    if (!hasSeries && ejerciciosActivos.length === 0) {
+      navigation.goBack();
+      return;
+    }
     Alert.alert(
       'Salir del entrenamiento',
-      '¿Seguro? Se guardarán las series completadas hasta ahora.',
+      'Se guardarán las series completadas hasta ahora.',
       [
         { text: 'Continuar', style: 'cancel' },
-        { text: 'Salir', style: 'destructive', onPress: async () => { await sesionActivaService.limpiar(); navigation.goBack(); } },
+        {
+          text: 'Salir',
+          style: 'destructive',
+          onPress: async () => {
+            await sesionActivaService.limpiar();
+            navigation.goBack();
+          },
+        },
       ],
     );
   };
 
-  // Cargar resumen al completar
-  useEffect(() => {
-    if (completado && sesionId) {
-      const duracionSeg = Math.floor((Date.now() - inicioTimestamp) / 1000);
-      sesionService.finalizarSesion(sesionId, duracionSeg).then(() => {
-        sesionService.getResumen(sesionId).then(r => setResumen(r));
-      });
+  // Finalize
+  const handleFinalizar = useCallback(async () => {
+    const total = ejerciciosActivos.reduce(
+      (acc, ea) => acc + ea.series.filter(s => s.completada).length, 0,
+    );
+    if (total === 0) {
+      Alert.alert('Sin series', 'Completa al menos una serie antes de finalizar.');
+      return;
     }
-  }, [completado, sesionId, inicioTimestamp]);
+    const duracionSeg = Math.floor((Date.now() - inicioTimestamp) / 1000);
+    if (sesionId) {
+      await sesionService.finalizarSesion(sesionId, duracionSeg);
+      const r = await sesionService.getResumen(sesionId);
+      setResumen(r);
+    }
+    await sesionActivaService.limpiar();
+    setCompletado(true);
+  }, [ejerciciosActivos, inicioTimestamp, sesionId]);
 
   const formatDuracion = (seg: number): string => {
     const m = Math.floor(seg / 60);
@@ -254,232 +457,199 @@ export const EntrenamientoScreen = () => {
     return m > 0 ? `${m} min ${s > 0 ? `${s}s` : ''}` : `${s}s`;
   };
 
-  // Pantalla de fin
+  // Progress
+  const totalSeries = ejerciciosActivos.reduce((acc, ea) => acc + ea.series.length, 0);
+  const totalCompletadas = ejerciciosActivos.reduce(
+    (acc, ea) => acc + ea.series.filter(s => s.completada).length, 0,
+  );
+  const progreso = totalSeries > 0 ? totalCompletadas / totalSeries : 0;
+
+  // ── Completion screen ──
   if (completado) {
     return (
       <SafeAreaView style={[styles.container, styles.centerContent, { backgroundColor: colors.bg }]}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <Ionicons name="trophy" size={72} color={colors.warning} style={{ marginBottom: 20 }} />
-        <Text style={[styles.completadoTitle, { color: colors.text }]}>¡Entrenamiento completado!</Text>
+        <Text style={[styles.completadoTitle, { color: colors.text }]}>
+          ¡Entrenamiento completado!
+        </Text>
 
         {resumen ? (
           <View style={styles.resumenContainer}>
             <View style={styles.resumenRow}>
-              <View style={styles.resumenItem}>
+              <View style={[styles.resumenItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <Ionicons name="time-outline" size={22} color={colors.accent} />
                 <Text style={[styles.resumenValor, { color: colors.text }]}>
                   {formatDuracion(resumen.duracionSeg)}
                 </Text>
-                <Text style={styles.resumenLabel}>Duración</Text>
+                <Text style={[styles.resumenLabel, { color: colors.textMuted }]}>Duración</Text>
               </View>
-              <View style={styles.resumenItem}>
+              <View style={[styles.resumenItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <Ionicons name="barbell-outline" size={22} color={colors.accent} />
                 <Text style={[styles.resumenValor, { color: colors.text }]}>
-                  {resumen.volumenTotal.toLocaleString()} kg
+                  {Math.round(fromDb(resumen.volumenTotal, unidad)).toLocaleString()} {unidad}
                 </Text>
-                <Text style={styles.resumenLabel}>Volumen</Text>
+                <Text style={[styles.resumenLabel, { color: colors.textMuted }]}>Volumen</Text>
               </View>
             </View>
             <View style={styles.resumenRow}>
-              <View style={styles.resumenItem}>
+              <View style={[styles.resumenItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <Ionicons name="list-outline" size={22} color={colors.accent} />
                 <Text style={[styles.resumenValor, { color: colors.text }]}>
                   {resumen.totalSeries}
                 </Text>
-                <Text style={styles.resumenLabel}>Series</Text>
+                <Text style={[styles.resumenLabel, { color: colors.textMuted }]}>Series</Text>
               </View>
-              <View style={styles.resumenItem}>
+              <View style={[styles.resumenItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <Ionicons name="fitness-outline" size={22} color={colors.accent} />
                 <Text style={[styles.resumenValor, { color: colors.text }]}>
                   {resumen.ejercicios}
                 </Text>
-                <Text style={styles.resumenLabel}>Ejercicios</Text>
+                <Text style={[styles.resumenLabel, { color: colors.textMuted }]}>Ejercicios</Text>
               </View>
             </View>
           </View>
         ) : (
-          <Text style={styles.completadoSub}>
-            {totalEjercicios} ejercicios · {seriesCompletadas.size} series
+          <Text style={[styles.completadoSub, { color: colors.textMuted }]}>
+            {ejerciciosActivos.length} ejercicios · {totalCompletadas} series
           </Text>
         )}
 
-        <TouchableOpacity
-          style={styles.btnVolver}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.btnVolverText}>Volver al inicio</Text>
-        </TouchableOpacity>
+        <View style={styles.completadoActions}>
+          <TouchableOpacity
+            style={styles.btnVolver}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.btnVolverText}>Volver al inicio</Text>
+          </TouchableOpacity>
+          {resumen && (
+            <TouchableOpacity
+              style={[styles.btnCompartir, { borderColor: colors.border }]}
+              onPress={() => {
+                const msg = `💪 Entrenamiento completado!\n\n⏱ ${formatDuracion(resumen.duracionSeg)}\n🏋️ ${Math.round(fromDb(resumen.volumenTotal, unidad)).toLocaleString()} ${unidad} volumen\n📋 ${resumen.totalSeries} series · ${resumen.ejercicios} ejercicios\n\n— GymLog`;
+                Share.share({ message: msg }).catch(() => {});
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="share-outline" size={18} color={colors.text} />
+              <Text style={[styles.btnCompartirText, { color: colors.text }]}>Compartir</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </SafeAreaView>
     );
   }
 
-  if (!ejercicioActual) {
+  // ── Loading ──
+  if (loading) {
     return <View style={[styles.container, { backgroundColor: colors.bg }]} />;
   }
 
-  const progresoPct =
-    ((ejercicioIndex * (ejercicioActual?.series ?? 1) + serieActual - 1) /
-      (totalEjercicios * (ejercicioActual?.series ?? 1))) *
-    100;
-
+  // ── Main workout screen ──
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Top bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={confirmarSalir} style={styles.btnClose} activeOpacity={0.85}>
-          <Ionicons name="close" size={20} color={COLORS.textMuted} />
+        <TouchableOpacity
+          onPress={confirmarSalir}
+          style={[styles.btnClose, { backgroundColor: colors.bgCard }]}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="close" size={20} color={colors.textMuted} />
         </TouchableOpacity>
-        <Text style={styles.topProgreso}>
-          {ejercicioIndex + 1} / {totalEjercicios}
+        <Text style={[styles.topTitle, { color: colors.text }]} numberOfLines={1}>
+          {rutinaNombre || 'Entrenamiento libre'}
         </Text>
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Barra progreso global */}
-      <View style={styles.progressBarBg}>
-        <View style={[styles.progressBarFill, { width: `${Math.min(progresoPct, 100)}%` }]} />
-      </View>
-
-      {/* Contenido principal */}
-      <View style={styles.content}>
-        {/* Grupo muscular + nombre */}
-        <Text style={styles.grupoTag}>
-          {capitalize(ejercicioActual.grupo_muscular)}
-        </Text>
-        <Text style={styles.ejercicioNombre}>{ejercicioActual.ejercicio_nombre}</Text>
-
-        {/* Badge tipo de serie */}
-        {ejercicioActual.tipo_serie && ejercicioActual.tipo_serie !== 'normal' && (
-          <View style={styles.tipoBadge}>
-            <Text style={styles.tipoBadgeText}>
-              {TIPO_SERIE_LABELS[ejercicioActual.tipo_serie]}
-            </Text>
-          </View>
-        )}
-
-        {/* Récord personal */}
-        {recordPersonal && (
-          <View style={styles.prBadge}>
-            <Text style={styles.prText}>
-              PR: {recordPersonal.peso} kg × {recordPersonal.reps} reps
-            </Text>
-          </View>
-        )}
-
-        {/* Número de serie */}
-        <View style={styles.serieContainer}>
-          <Text style={styles.serieLabel}>Serie</Text>
-          <Text style={styles.serieNumero}>
-            {serieActual}
-            <Text style={styles.serieDe}> / {ejercicioActual.series}</Text>
-          </Text>
+      {/* Progress bar */}
+      {totalSeries > 0 && (
+        <View style={[styles.progressBg, { backgroundColor: colors.border }]}>
+          <View style={[styles.progressFill, { width: `${progreso * 100}%` }]} />
         </View>
+      )}
 
-        {/* Dots de series */}
-        <View style={styles.dots}>
-          {Array.from({ length: ejercicioActual.series }, (_, i) => {
-            const done = seriesCompletadas.has(`${ejercicioIndex}-${i + 1}`);
-            const current = i + 1 === serieActual;
-            return (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  done && styles.dotDone,
-                  current && !done && styles.dotCurrent,
-                ]}
-              />
-            );
-          })}
-        </View>
-
-        {/* Inputs peso / reps */}
-        <View style={styles.inputsRow}>
-          <View style={styles.inputBlock}>
-            <Text style={styles.inputLabel}>Peso (kg)</Text>
-            <View style={styles.inputWrapper}>
-              <TouchableOpacity
-                onPress={() => setPeso(p => String(Math.max(0, (parseFloat(p) || 0) - 2.5)))}
-                style={styles.inputBtn}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.inputBtnText}>−</Text>
-              </TouchableOpacity>
-              <TextInput
-                style={styles.inputField}
-                value={peso}
-                onChangeText={setPeso}
-                keyboardType="numeric"
-                selectTextOnFocus
-              />
-              <TouchableOpacity
-                onPress={() => setPeso(p => String((parseFloat(p) || 0) + 2.5))}
-                style={styles.inputBtn}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.inputBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.inputBlock}>
-            <Text style={styles.inputLabel}>Repeticiones</Text>
-            <View style={styles.inputWrapper}>
-              <TouchableOpacity
-                onPress={() => setReps(r => String(Math.max(1, (parseInt(r, 10) || 0) - 1)))}
-                style={styles.inputBtn}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.inputBtnText}>−</Text>
-              </TouchableOpacity>
-              <TextInput
-                style={styles.inputField}
-                value={reps}
-                onChangeText={setReps}
-                keyboardType="numeric"
-                selectTextOnFocus
-              />
-              <TouchableOpacity
-                onPress={() => setReps(r => String((parseInt(r, 10) || 0) + 1))}
-                style={styles.inputBtn}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.inputBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Nota opcional */}
-        <TextInput
-          style={[styles.notaInput, { backgroundColor: COLORS.bgCard, color: COLORS.text }]}
-          value={notaSerie}
-          onChangeText={setNotaSerie}
-          placeholder="Nota (opcional)"
-          placeholderTextColor={COLORS.textDim}
-          maxLength={100}
-        />
-      </View>
-
-      {/* Botón completar */}
-      <TouchableOpacity
-        style={[styles.btnCompletar, yaCompletada && styles.btnCompletarDone]}
-        onPress={handleCompletar}
-        activeOpacity={0.85}
-        disabled={yaCompletada}
+      <ScrollView
+        style={styles.scrollContent}
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-          <Text style={styles.btnCompletarText}>
-            {yaCompletada ? 'Serie guardada' : 'Serie completada'}
-          </Text>
-        </View>
+        {/* Exercise cards */}
+        {ejerciciosActivos.map((ea, ejIndex) => {
+          const ejCompleted = ea.series.every(s => s.completada);
+          const firstUncompleted = ejerciciosActivos.findIndex(
+            e => e.series.some(s => !s.completada),
+          );
+          return (
+            <EjercicioWorkoutCard
+              key={ea.ejercicio.id}
+              ea={ea}
+              ejIndex={ejIndex}
+              isFirst={ejIndex === 0}
+              isLast={ejIndex === ejerciciosActivos.length - 1}
+              isActive={ejIndex === firstUncompleted}
+              isCompleted={ejCompleted}
+              onCompletarSerie={handleCompletarSerie}
+              onUpdateSerie={handleUpdateSerie}
+              onAgregarSerie={handleAgregarSerie}
+              onRemoveSerie={handleRemoveSerie}
+              onDescansoChange={handleDescansoChange}
+              onReorder={handleReorder}
+              onToggleCollapse={handleToggleCollapse}
+              onRemoveEjercicio={handleRemoveEjercicio}
+              onDescompletarSerie={handleDescompletarSerie}
+            />
+          );
+        })}
+
+        {/* Empty state */}
+        {ejerciciosActivos.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="barbell-outline" size={48} color={colors.textDim} />
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+              Agrega ejercicios para comenzar tu entrenamiento
+            </Text>
+          </View>
+        )}
+
+        {/* Finish button */}
+        {ejerciciosActivos.length > 0 && (
+          <TouchableOpacity
+            style={styles.btnFinalizar}
+            onPress={handleFinalizar}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="flag" size={18} color="#FFF" />
+            <Text style={styles.btnFinalizarText}>Finalizar entrenamiento</Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={{ height: 80 }} />
+      </ScrollView>
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setMostrarBiblioteca(true)}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add" size={24} color="#FFF" />
+        <Text style={styles.fabText}>Ejercicio</Text>
       </TouchableOpacity>
 
-      {/* Timer Modal */}
+      <EjercicioPickerModal
+        visible={mostrarBiblioteca}
+        ejercicios={biblioteca}
+        seleccionadoIds={ejerciciosActivos.map(ea => ea.ejercicio.id)}
+        onSelect={handleAgregarEjercicio}
+        onClose={() => setMostrarBiblioteca(false)}
+        onEjercicioCreado={recargarBiblioteca}
+      />
+
       <TimerModal
         visible={mostrarTimer}
         duracion={duracionTimer}
@@ -491,8 +661,10 @@ export const EntrenamientoScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1 },
   centerContent: { justifyContent: 'center', alignItems: 'center' },
+
+  // Top bar
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -504,176 +676,107 @@ const styles = StyleSheet.create({
   btnClose: {
     width: 40,
     height: 40,
-    backgroundColor: COLORS.bgCard,
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
-  btnCloseText: { color: COLORS.textMuted, fontSize: 16 },
-  topProgreso: { color: COLORS.textMuted, fontSize: 14, fontWeight: '600' },
-  progressBarBg: {
-    height: 3,
-    backgroundColor: COLORS.bgCard,
-    marginHorizontal: 0,
-  },
-  progressBarFill: {
-    height: 3,
-    backgroundColor: COLORS.accent,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 28,
-    paddingTop: 32,
-    alignItems: 'center',
-  },
-  grupoTag: {
-    color: COLORS.accent,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 8,
-  },
-  ejercicioNombre: {
-    color: COLORS.text,
-    fontSize: 30,
+  topTitle: {
+    fontSize: 17,
     fontWeight: '800',
     fontStyle: 'italic',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  tipoBadge: {
-    backgroundColor: COLORS.accent + '20',
-    borderRadius: 40,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  tipoBadgeText: {
-    color: COLORS.accent,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  prBadge: {
-    backgroundColor: COLORS.bgCard,
-    borderRadius: 40,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: COLORS.warning,
-  },
-  prText: {
-    color: COLORS.warning,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  serieContainer: { alignItems: 'center', marginBottom: 20 },
-  serieLabel: { color: COLORS.textMuted, fontSize: 14, marginBottom: 4 },
-  serieNumero: { color: COLORS.text, fontSize: 72, fontWeight: '800', fontFamily: 'Menlo', lineHeight: 80 },
-  serieDe: { color: COLORS.textMuted, fontSize: 36 },
-  dots: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 40,
-    backgroundColor: COLORS.bgCard,
-    borderRadius: 40,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  dot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: COLORS.bgCard,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-  },
-  dotDone: {
-    backgroundColor: COLORS.accent,
-    borderColor: COLORS.accent,
-  },
-  dotCurrent: {
-    borderColor: COLORS.accent,
-    backgroundColor: 'transparent',
-  },
-  inputsRow: {
-    flexDirection: 'row',
-    gap: 20,
-    width: '100%',
-  },
-  inputBlock: { flex: 1 },
-  inputLabel: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.bgCard,
-    borderRadius: 40,
-    overflow: 'hidden',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  inputBtn: {
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-  },
-  inputBtnText: {
-    color: COLORS.textMuted,
-    fontSize: 22,
-    fontWeight: '300',
-  },
-  inputField: {
     flex: 1,
-    color: COLORS.text,
-    fontSize: 22,
-    fontWeight: '800',
     textAlign: 'center',
-    paddingVertical: 14,
+    marginHorizontal: 8,
   },
-  btnCompletar: {
-    margin: 24,
+
+  // Progress
+  progressBg: {
+    height: 3,
+    marginHorizontal: 20,
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: COLORS.accent,
+  },
+
+  // Scroll
+  scrollContent: { flex: 1 },
+  scrollContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+
+  // Empty
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    gap: 16,
+  },
+  emptyText: {
+    fontSize: 15,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+    lineHeight: 22,
+  },
+
+  // FAB
+  fab: {
+    position: 'absolute',
+    bottom: 32,
+    right: 24,
     backgroundColor: COLORS.accent,
     borderRadius: 40,
-    paddingVertical: 22,
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 6,
+    shadowColor: COLORS.accent,
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  fabText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // Finalizar
+  btnFinalizar: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 40,
+    paddingVertical: 20,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
     shadowColor: COLORS.accent,
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
   },
-  btnCompletarDone: {
-    backgroundColor: COLORS.success,
-    shadowColor: COLORS.success,
-  },
-  btnCompletarText: {
+  btnFinalizarText: {
     color: '#FFF',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
+    fontStyle: 'italic',
   },
-  // Fin del entrenamiento
-  trofeo: { fontSize: 72, marginBottom: 20 },
+
+  // Completado / Resumen
   completadoTitle: {
-    color: COLORS.text,
     fontSize: 26,
     fontWeight: '800',
     fontStyle: 'italic',
     marginBottom: 10,
   },
   completadoSub: {
-    color: COLORS.textMuted,
     fontSize: 16,
     marginBottom: 40,
   },
@@ -682,8 +785,30 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     paddingVertical: 18,
     paddingHorizontal: 48,
+    shadowColor: COLORS.accent,
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
   btnVolverText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  completadoActions: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  btnCompartir: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 40,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderWidth: 1,
+  },
+  btnCompartirText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
   resumenContainer: {
     width: '100%',
     paddingHorizontal: 24,
@@ -696,29 +821,19 @@ const styles = StyleSheet.create({
   },
   resumenItem: {
     flex: 1,
-    backgroundColor: COLORS.bgCard,
-    borderRadius: 40,
+    borderRadius: 20,
     padding: 16,
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   resumenValor: {
     fontSize: 18,
     fontWeight: '800',
+    fontFamily: 'Menlo',
   },
   resumenLabel: {
-    color: COLORS.textMuted,
     fontSize: 12,
     fontWeight: '600',
-  },
-  notaInput: {
-    width: '100%',
-    borderRadius: 40,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    marginTop: 16,
   },
 });

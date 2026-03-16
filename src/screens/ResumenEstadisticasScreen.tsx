@@ -11,6 +11,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { getDatabase } from '../database/database';
 import { COLORS, globalStyles } from '../utils/theme';
 import { useColors } from '../utils/ThemeContext';
+import { useUnidad } from '../utils/UnidadContext';
+import { fromDb } from '../utils/conversion';
 import { capitalize } from '../utils/formatters';
 
 type Periodo = 'semanal' | 'mensual';
@@ -40,6 +42,7 @@ const formatDuracion = (seg: number): string => {
 
 export const ResumenEstadisticasScreen = () => {
   const { colors } = useColors();
+  const { unidad } = useUnidad();
   const [periodo, setPeriodo] = useState<Periodo>('semanal');
   const [stats, setStats] = useState<Stats | null>(null);
   const [grupos, setGrupos] = useState<GrupoMuscular[]>([]);
@@ -181,7 +184,7 @@ export const ResumenEstadisticasScreen = () => {
               <Ionicons name="barbell" size={28} color={colors.accent} />
             </View>
             <Text style={[styles.bentoValor, { color: colors.text }]}>
-              {(stats?.volumen ?? 0).toLocaleString()} kg
+              {Math.round(fromDb(stats?.volumen ?? 0, unidad)).toLocaleString()} {unidad}
             </Text>
             <Text style={[styles.bentoLabel, { color: colors.textMuted }]}>
               Volumen

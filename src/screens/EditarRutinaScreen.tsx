@@ -18,6 +18,8 @@ import { EjercicioCard } from '../components/EjercicioCard';
 import { EjercicioPickerModal } from '../components/EjercicioPickerModal';
 import { COLORS, globalStyles } from '../utils/theme';
 import { useColors } from '../utils/ThemeContext';
+import { useUnidad } from '../utils/UnidadContext';
+import { fromDb, toDb } from '../utils/conversion';
 import { Ejercicio, TipoSerie, TIPO_SERIE_LABELS } from '../models';
 
 const DIAS = [
@@ -46,6 +48,7 @@ export const EditarRutinaScreen = () => {
   const navigation = useNavigation<any>();
   const { rutinaId } = route.params;
   const { colors } = useColors();
+  const { unidad } = useUnidad();
   const { ejercicios, recargar: recargarEjercicios } = useEjercicios();
 
   const [nombre, setNombre] = useState('');
@@ -71,7 +74,7 @@ export const EditarRutinaScreen = () => {
           ejercicio: { id: ej.ejercicio_id, nombre: ej.ejercicio_nombre ?? '', grupo_muscular: ej.grupo_muscular },
           series: String(ej.series),
           repeticiones: String(ej.repeticiones),
-          pesoObjetivo: String(ej.peso_objetivo),
+          pesoObjetivo: String(parseFloat(fromDb(ej.peso_objetivo, unidad).toFixed(1))),
           descanso: String(ej.descanso),
           tipoSerie: (ej.tipo_serie ?? 'normal') as TipoSerie,
         })),
@@ -153,7 +156,7 @@ export const EditarRutinaScreen = () => {
           orden: i,
           series: parseInt(cfg.series, 10) || 3,
           repeticiones: parseInt(cfg.repeticiones, 10) || 10,
-          peso_objetivo: parseFloat(cfg.pesoObjetivo) || 0,
+          peso_objetivo: toDb(parseFloat(cfg.pesoObjetivo) || 0, unidad),
           descanso: parseInt(cfg.descanso, 10) || descansoDefault,
           tipo_serie: cfg.tipoSerie,
           grupo_serie: grupoSerieMap[i],
@@ -258,7 +261,7 @@ export const EditarRutinaScreen = () => {
               {[
                 { label: 'Series', key: 'series' as const },
                 { label: 'Reps', key: 'repeticiones' as const },
-                { label: 'Peso kg', key: 'pesoObjetivo' as const },
+                { label: `Peso ${unidad}`, key: 'pesoObjetivo' as const },
                 { label: 'Desc. s', key: 'descanso' as const },
               ].map(({ label, key }) => (
                 <View key={key} style={styles.configItem}>

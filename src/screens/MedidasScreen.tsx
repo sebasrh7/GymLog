@@ -17,12 +17,14 @@ import { medidaService } from '../services/medidaService';
 import { MedidaCorporal } from '../models/Medida';
 import { COLORS, globalStyles } from '../utils/theme';
 import { useColors } from '../utils/ThemeContext';
+import { useUnidad } from '../utils/UnidadContext';
+import { fromDb, toDb } from '../utils/conversion';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_HEIGHT = 160;
 
-const CAMPOS: { key: keyof MedidaCorporal; label: string; unit: string }[] = [
-  { key: 'peso', label: 'Peso', unit: 'kg' },
+const CAMPOS_BASE: { key: keyof MedidaCorporal; label: string; unit: string }[] = [
+  { key: 'peso', label: 'Peso', unit: '_WEIGHT_' },
   { key: 'grasa_corporal', label: 'Grasa corporal', unit: '%' },
   { key: 'pecho', label: 'Pecho', unit: 'cm' },
   { key: 'cintura', label: 'Cintura', unit: 'cm' },
@@ -33,6 +35,8 @@ const CAMPOS: { key: keyof MedidaCorporal; label: string; unit: string }[] = [
 
 export const MedidasScreen = () => {
   const { colors } = useColors();
+  const { unidad } = useUnidad();
+  const CAMPOS = CAMPOS_BASE.map(c => c.unit === '_WEIGHT_' ? { ...c, unit: unidad } : c);
   const [medidas, setMedidas] = useState<MedidaCorporal[]>([]);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [valores, setValores] = useState<Record<string, string>>({});
@@ -57,7 +61,7 @@ export const MedidasScreen = () => {
     try {
       await medidaService.crear({
         fecha: new Date().toISOString(),
-        peso: valores.peso ? parseFloat(valores.peso) : null,
+        peso: valores.peso ? toDb(parseFloat(valores.peso), unidad) : null,
         grasa_corporal: valores.grasa_corporal ? parseFloat(valores.grasa_corporal) : null,
         pecho: valores.pecho ? parseFloat(valores.pecho) : null,
         cintura: valores.cintura ? parseFloat(valores.cintura) : null,
@@ -95,10 +99,13 @@ export const MedidasScreen = () => {
   const datosGrafica = [...medidas]
     .reverse()
     .filter(m => (m[campoGrafica] as number | null | undefined) != null)
-    .map(m => ({
-      fecha: m.fecha,
-      valor: m[campoGrafica] as number,
-    }));
+    .map(m => {
+      const raw = m[campoGrafica] as number;
+      return {
+        fecha: m.fecha,
+        valor: campoGrafica === 'peso' ? fromDb(raw, unidad) : raw,
+      };
+    });
 
   const maxVal = datosGrafica.length > 0 ? Math.max(...datosGrafica.map(d => d.valor)) : 0;
   const minVal = datosGrafica.length > 0 ? Math.min(...datosGrafica.map(d => d.valor)) : 0;
@@ -223,7 +230,7 @@ export const MedidasScreen = () => {
               {formatFechaLarga(m.fecha)}
             </Text>
             <View style={styles.histValores}>
-              {m.peso != null && <Text style={[styles.histVal, { color: colors.text }]}>{m.peso} kg</Text>}
+              {m.peso != null && <Text style={[styles.histVal, { color: colors.text }]}>{parseFloat(fromDb(m.peso, unidad).toFixed(1))} {unidad}</Text>}
               {m.grasa_corporal != null && <Text style={[styles.histVal, { color: colors.text }]}>{m.grasa_corporal}%</Text>}
               {m.pecho != null && <Text style={[styles.histVal, { color: colors.textMuted }]}>P:{m.pecho}</Text>}
               {m.cintura != null && <Text style={[styles.histVal, { color: colors.textMuted }]}>Ci:{m.cintura}</Text>}

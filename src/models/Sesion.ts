@@ -1,3 +1,25 @@
+import { Ejercicio } from './Ejercicio';
+import { TipoSerie } from './Rutina';
+
+export interface SerieLocal {
+  peso: string;
+  reps: string;
+  completada: boolean;
+  nota?: string;
+  pesoAnterior?: number;
+  repsAnterior?: number;
+}
+
+export interface EjercicioActivo {
+  ejercicio: Ejercicio;
+  series: SerieLocal[];
+  descanso: number;
+  tipoSerie: TipoSerie;
+  grupoSerie?: number | null;
+  collapsed: boolean;
+  recordPersonal?: { peso: number; reps: number } | null;
+}
+
 export interface SerieRealizada {
   id?: number;
   sesion_id: number;

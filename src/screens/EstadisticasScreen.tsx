@@ -11,6 +11,8 @@ import { useRoute } from '@react-navigation/native';
 import { sesionService } from '../services/sesionService';
 import { COLORS, globalStyles } from '../utils/theme';
 import { useColors } from '../utils/ThemeContext';
+import { useUnidad } from '../utils/UnidadContext';
+import { fromDb } from '../utils/conversion';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_HEIGHT = 180;
@@ -18,6 +20,7 @@ const CHART_HEIGHT = 180;
 export const EstadisticasScreen = () => {
   const route = useRoute<any>();
   const { colors } = useColors();
+  const { unidad } = useUnidad();
   const { ejercicioId, ejercicioNombre } = route.params;
   const [datos, setDatos] = useState<{ fecha: string; peso: number; reps: number }[]>([]);
   const [record, setRecord] = useState<{ peso: number; reps: number } | null>(null);
@@ -44,8 +47,8 @@ export const EstadisticasScreen = () => {
     );
   }
 
-  const maxPeso = datos.length > 0 ? Math.max(...datos.map(d => d.peso)) : 0;
-  const minPeso = datos.length > 0 ? Math.min(...datos.map(d => d.peso)) : 0;
+  const maxPeso = datos.length > 0 ? Math.max(...datos.map(d => fromDb(d.peso, unidad))) : 0;
+  const minPeso = datos.length > 0 ? Math.min(...datos.map(d => fromDb(d.peso, unidad))) : 0;
   const range = maxPeso - minPeso || 1;
 
   const formatFechaCorta = (fecha: string) => {
@@ -64,8 +67,8 @@ export const EstadisticasScreen = () => {
             <Text style={[styles.prLabel, { color: colors.warning }]}>RÉCORD PERSONAL</Text>
             <View style={styles.prRow}>
               <View style={styles.prItem}>
-                <Text style={[styles.prValue, { color: colors.text }]}>{record.peso}</Text>
-                <Text style={[styles.prUnit, { color: colors.textMuted }]}>kg</Text>
+                <Text style={[styles.prValue, { color: colors.text }]}>{parseFloat(fromDb(record.peso, unidad).toFixed(1))}</Text>
+                <Text style={[styles.prUnit, { color: colors.textMuted }]}>{unidad}</Text>
               </View>
               <Text style={[styles.prSeparator, { color: colors.textMuted }]}>×</Text>
               <View style={styles.prItem}>
@@ -83,18 +86,19 @@ export const EstadisticasScreen = () => {
             <View style={styles.chartContainer}>
               {/* Eje Y */}
               <View style={styles.yAxis}>
-                <Text style={[styles.axisLabel, { color: colors.textDim }]}>{maxPeso}</Text>
+                <Text style={[styles.axisLabel, { color: colors.textDim }]}>{Math.round(maxPeso)}</Text>
                 <Text style={[styles.axisLabel, { color: colors.textDim }]}>{Math.round((maxPeso + minPeso) / 2)}</Text>
-                <Text style={[styles.axisLabel, { color: colors.textDim }]}>{minPeso}</Text>
+                <Text style={[styles.axisLabel, { color: colors.textDim }]}>{Math.round(minPeso)}</Text>
               </View>
               {/* Barras */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartScroll}>
                 <View style={styles.barsContainer}>
                   {datos.map((d, i) => {
-                    const height = ((d.peso - minPeso) / range) * (CHART_HEIGHT - 30) + 20;
+                    const pesoConv = fromDb(d.peso, unidad);
+                    const height = ((pesoConv - minPeso) / range) * (CHART_HEIGHT - 30) + 20;
                     return (
                       <View key={i} style={styles.barWrapper}>
-                        <Text style={[styles.barValue, { color: colors.textMuted }]}>{d.peso}</Text>
+                        <Text style={[styles.barValue, { color: colors.textMuted }]}>{Math.round(pesoConv)}</Text>
                         <View style={[styles.bar, { height, backgroundColor: colors.accent }]} />
                         <Text style={[styles.barLabel, { color: colors.textDim }]}>{formatFechaCorta(d.fecha)}</Text>
                       </View>
@@ -121,7 +125,7 @@ export const EstadisticasScreen = () => {
             {[...datos].reverse().map((d, i) => (
               <View key={i} style={[styles.historialRow, { borderBottomColor: colors.border }]}>
                 <Text style={[styles.historialFecha, { color: colors.textMuted }]}>{formatFechaCorta(d.fecha)}</Text>
-                <Text style={[styles.historialPeso, { color: colors.text }]}>{d.peso} kg</Text>
+                <Text style={[styles.historialPeso, { color: colors.text }]}>{parseFloat(fromDb(d.peso, unidad).toFixed(1))} {unidad}</Text>
                 <Text style={[styles.historialReps, { color: colors.textMuted }]}>{d.reps} reps</Text>
               </View>
             ))}

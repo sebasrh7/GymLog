@@ -19,6 +19,8 @@ import { rutinaService } from '../services/rutinaService';
 import { RutinaCard } from '../components/RutinaCard';
 import { COLORS, globalStyles } from '../utils/theme';
 import { useColors } from '../utils/ThemeContext';
+import { useUnidad } from '../utils/UnidadContext';
+import { fromDb } from '../utils/conversion';
 import { useToast } from '../components/Toast';
 import { getDatabase } from '../database/database';
 
@@ -38,6 +40,7 @@ export const HomeScreen = () => {
   const navigation = useNavigation<any>();
   const { rutinas, loading, recargar } = useRutinas();
   const { colors, isDark } = useColors();
+  const { unidad } = useUnidad();
   const toast = useToast();
   const [stats, setStats] = useState<HomeStats>({
     rachaActual: 0,
@@ -67,47 +70,27 @@ export const HomeScreen = () => {
               ? Math.round((lastRes.rows.item(0).duracion_seg ?? 0) / 60)
               : 0;
 
-          // Streak
+          // Streak: count consecutive days from most recent session
           const [diasRes] = await db.executeSql(
             "SELECT DISTINCT date(fecha) as dia FROM sesiones ORDER BY dia DESC",
           );
           let rachaActual = 0;
-          let racha = 0;
-          let prevDate: Date | null = null;
-
-          for (let i = 0; i < diasRes.rows.length; i++) {
-            const d = new Date(diasRes.rows.item(i).dia + 'T12:00:00');
-            if (prevDate === null) {
-              const hoy = new Date();
-              hoy.setHours(12, 0, 0, 0);
-              const diff = Math.round((hoy.getTime() - d.getTime()) / 86400000);
-              if (diff <= 1) {
-                racha = 1;
-              } else {
-                racha = 1;
-                rachaActual = 0;
-              }
-              prevDate = d;
-              continue;
-            }
-            const diffDays = Math.round((prevDate.getTime() - d.getTime()) / 86400000);
-            if (diffDays === 1) {
-              racha++;
-            } else {
-              if (rachaActual === 0 && i <= 1) {
-                rachaActual = racha;
-              }
-              racha = 1;
-            }
-            prevDate = d;
-          }
-          if (rachaActual === 0 && diasRes.rows.length > 0) {
+          if (diasRes.rows.length > 0) {
             const hoy = new Date();
             hoy.setHours(12, 0, 0, 0);
-            const firstDay = new Date(diasRes.rows.item(0).dia + 'T12:00:00');
-            const diff = Math.round((hoy.getTime() - firstDay.getTime()) / 86400000);
-            if (diff <= 1) {
-              rachaActual = racha;
+            const primera = new Date(diasRes.rows.item(0).dia + 'T12:00:00');
+            const diffHoy = Math.round((hoy.getTime() - primera.getTime()) / 86400000);
+            if (diffHoy <= 1) {
+              rachaActual = 1;
+              for (let i = 1; i < diasRes.rows.length; i++) {
+                const prev = new Date(diasRes.rows.item(i - 1).dia + 'T12:00:00');
+                const curr = new Date(diasRes.rows.item(i).dia + 'T12:00:00');
+                if (Math.round((prev.getTime() - curr.getTime()) / 86400000) === 1) {
+                  rachaActual++;
+                } else {
+                  break;
+                }
+              }
             }
           }
 
@@ -222,7 +205,7 @@ export const HomeScreen = () => {
                       <Ionicons name="trending-up" size={16} color={colors.textDim} />
                     </View>
                     <Text style={[styles.bentoSmallValue, { color: COLORS.accent }]}>
-                      {formatVolumen(stats.totalVolumen)}
+                      {formatVolumen(fromDb(stats.totalVolumen, unidad))}
                     </Text>
                   </View>
 

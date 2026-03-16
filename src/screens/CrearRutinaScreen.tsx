@@ -18,6 +18,8 @@ import { EjercicioCard } from '../components/EjercicioCard';
 import { EjercicioPickerModal } from '../components/EjercicioPickerModal';
 import { COLORS, globalStyles } from '../utils/theme';
 import { useColors } from '../utils/ThemeContext';
+import { useUnidad } from '../utils/UnidadContext';
+import { toDb } from '../utils/conversion';
 import { Ejercicio, TipoSerie, TIPO_SERIE_LABELS } from '../models';
 
 const DIAS = [
@@ -43,6 +45,7 @@ interface EjercicioConfig {
 
 export const CrearRutinaScreen = () => {
   const { colors } = useColors();
+  const { unidad } = useUnidad();
   const navigation = useNavigation<any>();
   const { ejercicios, recargar: recargarEjercicios } = useEjercicios();
 
@@ -128,7 +131,7 @@ export const CrearRutinaScreen = () => {
           orden: i,
           series: parseInt(cfg.series, 10) || 3,
           repeticiones: parseInt(cfg.repeticiones, 10) || 10,
-          peso_objetivo: parseFloat(cfg.pesoObjetivo) || 0,
+          peso_objetivo: toDb(parseFloat(cfg.pesoObjetivo) || 0, unidad),
           descanso: parseInt(cfg.descanso, 10) || descansoDefault,
           tipo_serie: cfg.tipoSerie,
           grupo_serie: grupoSerieMap[i],
@@ -227,7 +230,7 @@ export const CrearRutinaScreen = () => {
               {[
                 { label: 'Series', key: 'series' as const },
                 { label: 'Reps', key: 'repeticiones' as const },
-                { label: 'Peso kg', key: 'pesoObjetivo' as const },
+                { label: `Peso ${unidad}`, key: 'pesoObjetivo' as const },
                 { label: 'Desc. s', key: 'descanso' as const },
               ].map(({ label, key }) => (
                 <View key={key} style={styles.configItem}>

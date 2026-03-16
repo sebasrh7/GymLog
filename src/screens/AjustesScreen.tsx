@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   StyleSheet,
   Alert,
   Share,
@@ -17,6 +18,14 @@ import { backupService } from '../services/backupService';
 import { getDatabase } from '../database/database';
 import { COLORS, globalStyles } from '../utils/theme';
 import { useColors, ThemeMode } from '../utils/ThemeContext';
+import { useUnidad, WeightUnit } from '../utils/UnidadContext';
+import { fromDb } from '../utils/conversion';
+import { preferences } from '../utils/preferences';
+
+const UNIT_OPTIONS: { value: WeightUnit; label: string }[] = [
+  { value: 'kg', label: 'Kilogramos (kg)' },
+  { value: 'lb', label: 'Libras (lb)' },
+];
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string }[] = [
   { value: 'system', label: 'Sistema', icon: 'phone-portrait-outline' },
@@ -31,14 +40,18 @@ interface AthleteStats {
   mejorRacha: number;
 }
 
+
 export const AjustesScreen = () => {
   const { colors, mode, setMode, isDark } = useColors();
+  const { unidad, setUnidad } = useUnidad();
   const [stats, setStats] = useState<AthleteStats>({
     totalSesiones: 0,
     totalVolumen: 0,
     rachaActual: 0,
     mejorRacha: 0,
   });
+  const [nombre, setNombre] = useState('Atleta');
+  const [editandoNombre, setEditandoNombre] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -62,49 +75,45 @@ export const AjustesScreen = () => {
           );
           let rachaActual = 0;
           let mejorRacha = 0;
-          let racha = 0;
-          let prevDate: Date | null = null;
 
-          for (let i = 0; i < diasRes.rows.length; i++) {
-            const d = new Date(diasRes.rows.item(i).dia + 'T12:00:00');
-            if (prevDate === null) {
-              // Check if first date is today or yesterday
-              const hoy = new Date();
-              hoy.setHours(12, 0, 0, 0);
-              const diff = Math.round((hoy.getTime() - d.getTime()) / 86400000);
-              if (diff <= 1) {
-                racha = 1;
-              } else {
-                racha = 1; // Start counting but won't be "current"
-                rachaActual = 0;
-              }
-              prevDate = d;
-              continue;
-            }
-            const diffDays = Math.round((prevDate.getTime() - d.getTime()) / 86400000);
-            if (diffDays === 1) {
-              racha++;
-            } else {
-              if (rachaActual === 0 && i <= 1) {
-                rachaActual = racha;
-              }
-              mejorRacha = Math.max(mejorRacha, racha);
-              racha = 1;
-            }
-            prevDate = d;
-          }
-          mejorRacha = Math.max(mejorRacha, racha);
-          if (rachaActual === 0 && diasRes.rows.length > 0) {
+          if (diasRes.rows.length > 0) {
+            // Current streak: only if most recent session is today or yesterday
             const hoy = new Date();
             hoy.setHours(12, 0, 0, 0);
-            const firstDay = new Date(diasRes.rows.item(0).dia + 'T12:00:00');
-            const diff = Math.round((hoy.getTime() - firstDay.getTime()) / 86400000);
-            if (diff <= 1) {
-              rachaActual = racha;
+            const primera = new Date(diasRes.rows.item(0).dia + 'T12:00:00');
+            const diffHoy = Math.round((hoy.getTime() - primera.getTime()) / 86400000);
+            if (diffHoy <= 1) {
+              rachaActual = 1;
+              for (let i = 1; i < diasRes.rows.length; i++) {
+                const prev = new Date(diasRes.rows.item(i - 1).dia + 'T12:00:00');
+                const curr = new Date(diasRes.rows.item(i).dia + 'T12:00:00');
+                if (Math.round((prev.getTime() - curr.getTime()) / 86400000) === 1) {
+                  rachaActual++;
+                } else {
+                  break;
+                }
+              }
             }
+
+            // Best streak: scan all consecutive segments
+            let racha = 1;
+            for (let i = 1; i < diasRes.rows.length; i++) {
+              const prev = new Date(diasRes.rows.item(i - 1).dia + 'T12:00:00');
+              const curr = new Date(diasRes.rows.item(i).dia + 'T12:00:00');
+              if (Math.round((prev.getTime() - curr.getTime()) / 86400000) === 1) {
+                racha++;
+              } else {
+                mejorRacha = Math.max(mejorRacha, racha);
+                racha = 1;
+              }
+            }
+            mejorRacha = Math.max(mejorRacha, racha);
           }
 
           setStats({ totalSesiones, totalVolumen, rachaActual, mejorRacha });
+
+          const savedNombre = await preferences.getNombre();
+          setNombre(savedNombre);
         } catch {
           // silent
         }
@@ -112,6 +121,13 @@ export const AjustesScreen = () => {
       cargar();
     }, []),
   );
+
+  const handleNombreSubmit = () => {
+    setEditandoNombre(false);
+    const trimmed = nombre.trim() || 'Atleta';
+    setNombre(trimmed);
+    preferences.setNombre(trimmed).catch(() => {});
+  };
 
   const handleExportar = async () => {
     try {
@@ -251,9 +267,9 @@ export const AjustesScreen = () => {
     { icon: 'trash-outline', title: 'Borrar todos los datos', subtitle: 'Elimina rutinas, ejercicios e historial', onPress: handleBorrarDatos, destructive: true },
   ];
 
-  const aboutItems: MenuItem[] = [
-    { icon: 'barbell', title: 'GymLog', subtitle: 'Versión 1.0.0', onPress: () => {} },
-    { icon: 'heart-outline', title: 'Hecho con React Native', subtitle: 'Open source', onPress: () => {} },
+  const aboutItems = [
+    { icon: 'barbell' as const, title: 'GymLog', subtitle: 'Versión 1.0.0' },
+    { icon: 'heart-outline' as const, title: 'Hecho con React Native', subtitle: 'Open source' },
   ];
 
   const renderMenuItem = (item: MenuItem, index: number, isLast: boolean) => (
@@ -304,7 +320,26 @@ export const AjustesScreen = () => {
               </View>
             </View>
           </View>
-          <Text style={[styles.profileName, { color: colors.text }]}>Atleta</Text>
+          {editandoNombre ? (
+            <TextInput
+              style={[styles.profileName, styles.profileNameInput, { color: colors.text, borderBottomColor: COLORS.accent }]}
+              value={nombre}
+              onChangeText={setNombre}
+              onBlur={handleNombreSubmit}
+              onSubmitEditing={handleNombreSubmit}
+              autoFocus
+              maxLength={20}
+              returnKeyType="done"
+              selectTextOnFocus
+            />
+          ) : (
+            <TouchableOpacity onPress={() => setEditandoNombre(true)} activeOpacity={0.85}>
+              <View style={styles.nameRow}>
+                <Text style={[styles.profileName, { color: colors.text }]}>{nombre}</Text>
+                <Ionicons name="pencil" size={14} color={colors.textDim} />
+              </View>
+            </TouchableOpacity>
+          )}
           <Text style={[styles.profileSub, { color: colors.textMuted }]}>
             GymLog · Entrenamiento personal
           </Text>
@@ -340,7 +375,7 @@ export const AjustesScreen = () => {
           <Ionicons name="trending-up" size={20} color={COLORS.accent} />
           <Text style={[styles.volumenText, { color: colors.text }]}>
             Volumen total:{' '}
-            <Text style={styles.volumenNum}>{formatVolumen(stats.totalVolumen)} kg</Text>
+            <Text style={styles.volumenNum}>{formatVolumen(fromDb(stats.totalVolumen, unidad))} {unidad}</Text>
           </Text>
         </View>
 
@@ -378,6 +413,39 @@ export const AjustesScreen = () => {
           </View>
         </View>
 
+        {/* Unidad de peso */}
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Unidad de peso</Text>
+        <View style={[styles.menuCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={styles.chipRow}>
+            {UNIT_OPTIONS.map((opt) => {
+              const selected = unidad === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: selected ? COLORS.accent : colors.bgInput,
+                      borderColor: selected ? COLORS.accent : colors.border,
+                    },
+                  ]}
+                  onPress={() => setUnidad(opt.value)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons
+                    name="scale-outline"
+                    size={16}
+                    color={selected ? '#FFF' : colors.textMuted}
+                  />
+                  <Text style={[styles.chipText, { color: selected ? '#FFF' : colors.textMuted }]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* Datos */}
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Datos</Text>
         <View style={[styles.menuCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
@@ -387,7 +455,20 @@ export const AjustesScreen = () => {
         {/* Acerca de */}
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Acerca de</Text>
         <View style={[styles.menuCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          {aboutItems.map((item, i) => renderMenuItem(item, i, i === aboutItems.length - 1))}
+          {aboutItems.map((item, i) => (
+            <View key={i}>
+              <View style={styles.menuItem}>
+                <View style={[styles.menuIcon, { backgroundColor: colors.bg }]}>
+                  <Ionicons name={item.icon} size={20} color={colors.accent} />
+                </View>
+                <View style={styles.menuContent}>
+                  <Text style={[styles.menuTitle, { color: colors.text }]}>{item.title}</Text>
+                  <Text style={[styles.menuSubtitle, { color: colors.textMuted }]}>{item.subtitle}</Text>
+                </View>
+              </View>
+              {i < aboutItems.length - 1 && <View style={[styles.menuSep, { backgroundColor: colors.border }]} />}
+            </View>
+          ))}
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -431,6 +512,17 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     fontStyle: 'italic',
+  },
+  profileNameInput: {
+    borderBottomWidth: 2,
+    paddingVertical: 4,
+    textAlign: 'center',
+    minWidth: 120,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   profileSub: {
     fontSize: 13,

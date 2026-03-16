@@ -1,15 +1,28 @@
 import RNFS from 'react-native-fs';
+import { TipoSerie } from '../models';
 
 const RUTA = `${RNFS.DocumentDirectoryPath}/sesion_activa.json`;
 
+export interface SesionActivaEjercicio {
+  ejercicioId: number;
+  ejercicioNombre: string;
+  grupoMuscular: string;
+  series: Array<{
+    peso: string;
+    reps: string;
+    completada: boolean;
+    nota?: string;
+  }>;
+  descanso: number;
+  tipoSerie: TipoSerie;
+  grupoSerie?: number | null;
+  collapsed: boolean;
+}
+
 export interface SesionActivaState {
   sesionId: number;
-  rutinaId: number;
-  ejercicioIndex: number;
-  serieActual: number;
-  seriesCompletadas: string[]; // claves "index-serie"
-  peso: string;
-  reps: string;
+  rutinaId: number | null;
+  ejerciciosActivos: SesionActivaEjercicio[];
   timestamp: number;
 }
 
@@ -27,13 +40,18 @@ export const sesionActivaService = {
       const exists = await RNFS.exists(RUTA);
       if (!exists) return null;
       const json = await RNFS.readFile(RUTA, 'utf8');
-      const state: SesionActivaState = JSON.parse(json);
+      const state = JSON.parse(json);
+      // Backward compat: discard old linear format
+      if (!state.ejerciciosActivos) {
+        await sesionActivaService.limpiar();
+        return null;
+      }
       // Expirar sesiones de más de 4 horas
       if (Date.now() - state.timestamp > 4 * 60 * 60 * 1000) {
         await sesionActivaService.limpiar();
         return null;
       }
-      return state;
+      return state as SesionActivaState;
     } catch {
       return null;
     }

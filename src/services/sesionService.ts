@@ -42,6 +42,19 @@ export const sesionService = {
     }
   },
 
+  eliminarSerie: async (sesionId: number, ejercicioId: number, serieNumero: number): Promise<void> => {
+    try {
+      const db = await getDatabase();
+      await db.executeSql(
+        'DELETE FROM series_realizadas WHERE sesion_id = ? AND ejercicio_id = ? AND serie_numero = ?',
+        [sesionId, ejercicioId, serieNumero],
+      );
+    } catch (error) {
+      __DEV__ && console.error('Error al eliminar serie:', error);
+      throw error;
+    }
+  },
+
   getHistorial: async (): Promise<Sesion[]> => {
     try {
       const db = await getDatabase();
@@ -187,6 +200,33 @@ export const sesionService = {
         dias.push(result.rows.item(i).dia);
       }
       return dias;
+    } catch {
+      return [];
+    }
+  },
+
+  getUltimasSeries: async (ejercicioId: number): Promise<Array<{ peso: number; reps: number }>> => {
+    try {
+      const db = await getDatabase();
+      const [result] = await db.executeSql(
+        `SELECT sr.peso, sr.reps
+         FROM series_realizadas sr
+         WHERE sr.ejercicio_id = ? AND sr.completado = 1
+           AND sr.sesion_id = (
+             SELECT sr2.sesion_id FROM series_realizadas sr2
+             JOIN sesiones s2 ON s2.id = sr2.sesion_id
+             WHERE sr2.ejercicio_id = ? AND sr2.completado = 1
+             ORDER BY s2.fecha DESC LIMIT 1
+           )
+         ORDER BY sr.serie_numero ASC`,
+        [ejercicioId, ejercicioId],
+      );
+      const items: Array<{ peso: number; reps: number }> = [];
+      for (let i = 0; i < result.rows.length; i++) {
+        const row = result.rows.item(i);
+        items.push({ peso: row.peso, reps: row.reps });
+      }
+      return items;
     } catch {
       return [];
     }

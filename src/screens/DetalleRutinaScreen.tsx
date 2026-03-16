@@ -9,6 +9,8 @@ import { Rutina } from '../models';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { COLORS, globalStyles } from '../utils/theme';
 import { useColors } from '../utils/ThemeContext';
+import { useUnidad } from '../utils/UnidadContext';
+import { fromDb } from '../utils/conversion';
 import { capitalize } from '../utils/formatters';
 import { useToast } from '../components/Toast';
 
@@ -17,6 +19,7 @@ export const DetalleRutinaScreen = () => {
   const navigation = useNavigation<any>();
   const { rutinaId } = route.params;
   const { colors } = useColors();
+  const { unidad } = useUnidad();
   const toast = useToast();
   const [rutina, setRutina] = useState<Rutina | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,7 +83,7 @@ export const DetalleRutinaScreen = () => {
             <View style={styles.cardRight}>
               <Text style={[styles.stat, { color: colors.text }]}>{item.series} × {item.repeticiones}</Text>
               <Text style={[styles.statSub, { color: colors.textMuted }]}>
-                {item.peso_objetivo > 0 ? `${item.peso_objetivo} kg` : 'Sin peso'}
+                {item.peso_objetivo > 0 ? `${parseFloat(fromDb(item.peso_objetivo, unidad).toFixed(1))} ${unidad}` : 'Sin peso'}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
                 <Ionicons name="time-outline" size={12} color={colors.textMuted} />
